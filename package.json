@@ -1,0 +1,19 @@
+{
+  "name": "rt-refresh",
+  "version": "0.1.0",
+  "description": "CPA/Codex RT refresh workspace with a local UI for importing, rotating, and exporting refreshed CPA JSON.",
+  "type": "module",
+  "private": false,
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/cpa.test.js"
+  },
+  "keywords": ["cpa", "codex", "oauth", "refresh-token"],
+  "author": "zhizhishu",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
+
+
