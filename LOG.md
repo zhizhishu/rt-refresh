@@ -16,3 +16,7 @@ Added Dockerfile/docker-compose deployment, fixed README placement, updated serv
 
 Pushed Docker image to GHCR as `ghcr.io/zhizhishu/rt-refresh:latest` and `ghcr.io/zhizhishu/rt-refresh:1973d6b`. Added `docker-compose.ghcr.yml` and README instructions for image-based deployment. Verified remote manifest inspection.
 
+
+## 2026-06-07T19:20:31Z
+
+Ran GHCR image end-to-end refresh validation. Pulled `ghcr.io/zhizhishu/rt-refresh:latest` digest `sha256:f5031ca7c6b0b105247d4c6dc4522d4c60a47bb26875d64c07b5700d907dc973`, started container on host port 8790, used a local mock OAuth token endpoint, posted a batch with 3 accounts (2 with RT, 1 without RT). Result: refreshed=2, failed=1, exclusive export contained exactly 2 accounts with replaced access_token and refresh_token; no-RT account was dropped. Cleaned test container and mock process.

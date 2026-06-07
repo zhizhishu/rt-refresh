@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-07T19:12:32Z
+last_updated: 2026-06-07T19:20:31Z
 
 ## Current Goal
 
@@ -22,8 +22,8 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - `docker compose config` passed.
 - `docker compose -f docker-compose.ghcr.yml config` passed.
 - `docker build -t rt-refresh:local .` passed.
-- `docker run` container check passed earlier for `/api/config`.
 - `docker manifest inspect ghcr.io/zhizhishu/rt-refresh:latest` succeeded.
+- GHCR image E2E refresh test passed: batch input 3 accounts, 2 refreshed, 1 missing RT dropped by exclusive export, exported accounts had replaced AT and RT.
 
 ## Next
 
@@ -32,4 +32,5 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Cleanup
 
-- Docker test container removed.
+- Docker E2E test container removed.
+- Mock OAuth process and temp script removed.
