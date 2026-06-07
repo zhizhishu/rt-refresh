@@ -11,3 +11,8 @@ Completed rt-refresh implementation. Tests passed, local HTTP check passed, Brow
 ## 2026-06-07T19:02:25Z
 
 Added Dockerfile/docker-compose deployment, fixed README placement, updated server host binding, validated npm tests, compose config, docker build, and container `/api/config`. Diagnosed Browser MCP/Relay: MCPDuck protocol and Relay CLI tabs are healthy; previous direct relay navigation timed out due to no leased tabId / partial tool exposure.
+
+## 2026-06-07T19:11:28Z
+
+Pushed Docker image to GHCR as `ghcr.io/zhizhishu/rt-refresh:latest` and `ghcr.io/zhizhishu/rt-refresh:1973d6b`. Added `docker-compose.ghcr.yml` and README instructions for image-based deployment. Verified remote manifest inspection.
+

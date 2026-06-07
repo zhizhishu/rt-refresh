@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-07T19:02:25Z
+last_updated: 2026-06-07T19:12:32Z
 
 ## Current Goal
 
@@ -8,34 +8,27 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Done
 
-- Created project boundary under storage root.
-- Cloned upstream references into `_references/` for local research; references are gitignored.
 - Implemented dependency-free Node.js API and static UI.
 - Supports CLIProxyAPI auth JSON, sub2api `credentials`, arrays, `accounts/items/data`, and JSONL.
-- Added exclusive export and canonical CPA auth array export.
-- Added Dockerfile, `.dockerignore`, and `docker-compose.yml`.
-- Server supports `HOST` and `PORT`; compose uses `HOST=0.0.0.0`, `PORT=8787`.
-- Added README server and Docker Compose usage.
+- Added Dockerfile, local build compose, and GHCR image compose.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
+- Pushed GHCR images:
+  - `ghcr.io/zhizhishu/rt-refresh:latest`
+  - `ghcr.io/zhizhishu/rt-refresh:1973d6b`
 
 ## Validation
 
 - `npm test` passed: 4/4 tests.
 - `docker compose config` passed.
+- `docker compose -f docker-compose.ghcr.yml config` passed.
 - `docker build -t rt-refresh:local .` passed.
-- `docker run --rm -d --name rt-refresh-test -p 8788:8787 rt-refresh:local` passed; `/api/config` returned expected JSON.
-- Test container removed.
-
-## Browser MCP Note
-
-- MCPDuck protocol check passed and listed Browser Relay tools.
-- Browser Relay CLI `tabs` worked, proving relay service/extension is reachable.
-- Earlier failure was likely caused by using `relay_navigate` without a leased `tabId`; current Codex tool exposure also lacked some Relay tools directly, so CLI fallback/lease flow should be used for real Chrome automation.
+- `docker run` container check passed earlier for `/api/config`.
+- `docker manifest inspect ghcr.io/zhizhishu/rt-refresh:latest` succeeded.
 
 ## Next
 
-- On a server: `docker compose up -d --build`, then open `http://服务器IP:8787`.
-- Import CTF CPA JSON and refresh against the configured token endpoint.
+- Server direct image run: `docker run -d --name rt-refresh --restart unless-stopped -p 8787:8787 ghcr.io/zhizhishu/rt-refresh:latest`.
+- Or `docker compose -f docker-compose.ghcr.yml up -d`.
 
 ## Cleanup
 

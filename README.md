@@ -34,6 +34,37 @@ http://127.0.0.1:8787
 ```
 
 
+## 直接使用 GHCR 镜像
+
+镜像已推送到 GitHub Container Registry：
+
+```text
+ghcr.io/zhizhishu/rt-refresh:latest
+ghcr.io/zhizhishu/rt-refresh:1973d6b
+```
+
+### docker run
+
+```bash
+docker run -d \
+  --name rt-refresh \
+  --restart unless-stopped \
+  -p 8787:8787 \
+  ghcr.io/zhizhishu/rt-refresh:latest
+```
+
+### docker compose 拉镜像运行
+
+```bash
+curl -O https://raw.githubusercontent.com/zhizhishu/rt-refresh/main/docker-compose.ghcr.yml
+docker compose -f docker-compose.ghcr.yml up -d
+```
+
+打开：
+
+```text
+http://服务器IP:8787
+```
 ## Docker Compose 部署
 
 ```bash
@@ -82,3 +113,4 @@ UI 中可配置：
 - Cookie / session token
 
 `.gitignore` 已排除常见本地文件，但凭证文件名千奇百怪，别靠运气。
+

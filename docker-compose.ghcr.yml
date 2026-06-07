@@ -1,0 +1,10 @@
+services:
+  rt-refresh:
+    image: ghcr.io/zhizhishu/rt-refresh:latest
+    container_name: rt-refresh
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8787
+    ports:
+      - "8787:8787"
