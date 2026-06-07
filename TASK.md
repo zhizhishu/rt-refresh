@@ -1,10 +1,10 @@
 # TASK
 
-last_updated: 2026-06-07T18:37:45Z
+last_updated: 2026-06-07T19:02:25Z
 
 ## Current Goal
 
-Build and publish `rt-refresh`: import CPA/Codex JSON, refresh RT into a new AT/RT pair, keep only refreshed usable credentials, and export refreshed CPA JSON through a small local UI.
+Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON, refreshing RT into a new AT/RT pair, keeping only refreshed usable credentials, and exporting refreshed CPA JSON.
 
 ## Done
 
@@ -13,20 +13,30 @@ Build and publish `rt-refresh`: import CPA/Codex JSON, refresh RT into a new AT/
 - Implemented dependency-free Node.js API and static UI.
 - Supports CLIProxyAPI auth JSON, sub2api `credentials`, arrays, `accounts/items/data`, and JSONL.
 - Added exclusive export and canonical CPA auth array export.
-- Added tests with mocked OAuth token endpoint.
+- Added Dockerfile, `.dockerignore`, and `docker-compose.yml`.
+- Server supports `HOST` and `PORT`; compose uses `HOST=0.0.0.0`, `PORT=8787`.
+- Added README server and Docker Compose usage.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 
 ## Validation
 
 - `npm test` passed: 4/4 tests.
-- Local HTTP check passed for `/api/config` and `/` page content.
-- Browser Relay navigation attempted but timed out; local HTTP verification used as fallback.
+- `docker compose config` passed.
+- `docker build -t rt-refresh:local .` passed.
+- `docker run --rm -d --name rt-refresh-test -p 8788:8787 rt-refresh:local` passed; `/api/config` returned expected JSON.
+- Test container removed.
+
+## Browser MCP Note
+
+- MCPDuck protocol check passed and listed Browser Relay tools.
+- Browser Relay CLI `tabs` worked, proving relay service/extension is reachable.
+- Earlier failure was likely caused by using `relay_navigate` without a leased `tabId`; current Codex tool exposure also lacked some Relay tools directly, so CLI fallback/lease flow should be used for real Chrome automation.
 
 ## Next
 
-- Use `npm start` and open `http://127.0.0.1:8787`.
+- On a server: `docker compose up -d --build`, then open `http://服务器IP:8787`.
 - Import CTF CPA JSON and refresh against the configured token endpoint.
 
 ## Cleanup
 
-- Local test server stopped and `.rt-refresh.pid` removed.
+- Docker test container removed.

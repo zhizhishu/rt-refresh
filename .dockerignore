@@ -1,0 +1,11 @@
+.git
+_references
+node_modules
+dist
+.env
+*.log
+PROJECT_ID.md
+PROJECT_CONTEXT.md
+TASK.md
+LOG.md
+AGENTS.md

@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const publicDir = path.join(root, "public");
 const port = Number(process.env.PORT || 8787);
+const host = process.env.HOST || "127.0.0.1";
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -86,7 +87,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, "127.0.0.1", () => {
-  console.log(`rt-refresh UI: http://127.0.0.1:${port}`);
+server.listen(port, host, () => {
+  const shownHost = host === "0.0.0.0" ? "127.0.0.1" : host;
+  console.log(`rt-refresh UI: http://${shownHost}:${port}`);
   console.log("No credential persistence: imported CPA JSON stays in browser memory unless you export it.");
 });
