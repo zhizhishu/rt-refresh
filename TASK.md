@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T06:22:49Z
+last_updated: 2026-06-08T06:41:46Z
 
 ## Current Goal
 
@@ -27,12 +27,16 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - `scripts/cli-companion.mjs` supports `--basic-auth user:password` and sanitizes auth/endpoint arguments in uploaded reports.
 - Added CTF raw capture mode. Setting `CAPTURE_REDACT=false` disables server-side redaction for `/api/fingerprint`, `/api/captures`, `/api/cli-report`, and `/proxy?target=...`; companion supports `--no-redact` / `RT_REFRESH_REDACT=false` for raw reports.
 - Added one-command local probe: `npm run probe -- --base http://服务器IP:8787 --basic-auth admin:密码 --raw`. It performs CLI fingerprint hit + companion upload, optionally proxy test with `--proxy-target`, then exits.
+- Added no-residue temporary probe launchers:
+  - `scripts/temp-probe.sh` for Linux/macOS.
+  - `scripts/temp-probe.ps1` for Windows PowerShell.
+  - They create a temporary directory, download probe scripts, optionally download portable Node if Node 18+ is missing, run the probe, and delete the temporary directory on exit.
 - Docker image now includes `scripts/cli-companion.mjs` under `/app/scripts/`.
 - Imported file `scope` auto-fills the UI scope field when default/blank.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:f144c1d`
+  - `ghcr.io/zhizhishu/rt-refresh:f84b5bb`
 - `latest` supports `linux/amd64` and `linux/arm64`.
 
 ## Validation
@@ -48,8 +52,9 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Password-protected runtime smoke passed: unauthenticated `/api/config` returned 401; authenticated `/api/config`, `/api/fingerprint`, `/api/cli-report`, and `/api/captures` worked.
 - Raw capture runtime smoke passed: with `CAPTURE_REDACT=false`, captured headers/body/response auth fields were returned as original strings; companion `--no-redact` upload succeeded.
 - Quick probe runtime smoke passed locally with and without `--proxy-target`.
+- Windows temporary probe smoke passed from GitHub raw URL; `rt-refresh-probe-*` temporary directory count was unchanged before/after, confirming cleanup.
 - Local Docker image smoke passed for `/api/config`, HTML banner, `/api/captures`, and companion script presence.
-- After pulling the new GHCR image, `node /app/scripts/quick-probe.mjs --base http://127.0.0.1:8787 --basic-auth ... --raw` smoke passed inside the container. Latest digest: `sha256:0477bf4d3ebc9cd97c5cf875a58f80c06a5e898d595297120ef69500a561494d`.
+- After pushing the new GHCR image, manifest shows `linux/amd64` and `linux/arm64`. Latest digest: `sha256:b6f008c0f7491fe3065d5d10363ded524510372e72ac609ff2a0a234abfc5219`.
 
 ## Server Update Command
 
@@ -62,4 +67,5 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - For personal use, set `AUTH_USER` and `AUTH_PASSWORD` in Docker Compose before exposing the port.
 - For CTF raw capture, set `CAPTURE_REDACT=false`; for companion raw report, add `--no-redact`.
 - Prefer the one-command probe for browser capture docs instead of showing three separate paths.
+- Prefer the temporary no-residue launcher when the target machine should not keep project files or Node installs.
 - If a row reports `refresh_token_reused` or `app_session_terminated`, that RT is already unusable; use the newest JSON produced by the successful rotation or re-login to obtain a new RT.
