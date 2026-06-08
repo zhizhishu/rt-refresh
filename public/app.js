@@ -156,12 +156,13 @@ async function refresh() {
     });
     lastRefreshResult = result;
     $("output").value = pretty(result.exported);
-    for (const r of result.results) {
-      if (r.ok) log(`OK #${r.index}: AT#${r.access_fingerprint} RT#${r.refresh_fingerprint} ${r.rotated_refresh_token ? "返回新RT，旧RT可能失效" : "未返回新RT，旧RT不会因此失效"}`);
-      else if (r.skipped) log(`SKIP #${r.index}: ${r.reason}`);
-      else log(`FAIL #${r.index}: ${r.error}`);
-    }
-    log(`完成：成功 ${result.refreshed}，失败 ${result.failed}，exclusive=${result.exclusive}`);
+    const okRows = result.results.filter((r) => r.ok);
+    const failRows = result.results.filter((r) => r.ok === false);
+    const skippedRows = result.results.filter((r) => r.skipped);
+    for (const r of failRows) log(`FAIL #${r.index}: ${r.error}`);
+    for (const r of okRows) log(`OK #${r.index}: AT#${r.access_fingerprint} RT#${r.refresh_fingerprint} ${r.rotated_refresh_token ? "返回新RT，旧RT可能失效" : "未返回新RT，旧RT不会因此失效"}`);
+    if (skippedRows.length) log(`SKIP 汇总：${skippedRows.length} 条未选中，未刷新。`);
+    log(`完成：成功 ${result.refreshed}，失败 ${result.failed}，跳过 ${skippedRows.length}，exclusive=${result.exclusive}`);
   } finally {
     $("refresh").disabled = false;
     $("refresh").textContent = "刷新 RT 并生成导出";
