@@ -17,7 +17,8 @@ function argValue(name, fallback = "") {
 
 const endpoint = argValue("--endpoint", process.env.RT_REFRESH_ENDPOINT || "http://127.0.0.1:8787/api/cli-report");
 const explicitBasicAuth = argValue("--basic-auth", process.env.RT_REFRESH_BASIC_AUTH || "");
-const includeRaw = process.argv.includes("--include-raw");
+const companionRedact = !["0", "false", "no", "off", "raw"].includes(String(process.env.RT_REFRESH_REDACT ?? "true").toLowerCase()) && !process.argv.includes("--no-redact");
+const includeRaw = process.argv.includes("--include-raw") || !companionRedact;
 const home = os.homedir();
 
 function sha256(buf) {
@@ -35,6 +36,7 @@ function looksSensitiveValue(value) {
 
 function redactByName(name, value) {
   const text = String(value ?? "");
+  if (!companionRedact) return value;
   if (!isSensitiveName(name) && !looksSensitiveValue(text)) return value;
   return { redacted: true, length: text.length, sha256: sha256(text).slice(0, 16) };
 }
@@ -75,6 +77,7 @@ function sanitizeEndpointForReport(rawEndpoint) {
 }
 
 function sanitizedArgv(args) {
+  if (!companionRedact) return args.filter((arg) => arg !== "--include-raw");
   const out = [];
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -183,6 +186,7 @@ async function main() {
     companion: {
       argv: sanitizedArgv(process.argv.slice(2)),
       include_raw: includeRaw,
+      redact: companionRedact,
       node: process.version,
       platform: process.platform,
       arch: process.arch,
@@ -196,7 +200,7 @@ async function main() {
     processes: await processList(),
     notes: [
       "Default mode redacts token/secret/cookie/authorization-like values and stores hashes/lengths.",
-      "Use --include-raw only inside the CTF lab if you intentionally want raw config text in the report.",
+      "Use --include-raw for raw file text, or --no-redact / RT_REFRESH_REDACT=false for raw CTF reports.",
     ],
   };
   const headers = { "content-type": "application/json", "user-agent": `rt-refresh-companion/${process.version}` };

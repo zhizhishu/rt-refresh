@@ -15,6 +15,7 @@ const proxyTargetBase = process.env.PROXY_TARGET_BASE || "";
 const authUser = process.env.AUTH_USER || process.env.RT_REFRESH_USER || "admin";
 const authPassword = process.env.AUTH_PASSWORD || process.env.RT_REFRESH_PASSWORD || "";
 const authRealm = process.env.AUTH_REALM || "rt-refresh";
+const captureRedact = !["0", "false", "no", "off", "raw"].includes(String(process.env.CAPTURE_REDACT ?? "true").toLowerCase());
 const captures = [];
 
 const contentTypes = {
@@ -80,6 +81,7 @@ function looksSensitiveValue(value) {
 function redactByName(name, value) {
   if (value == null) return value;
   const text = Array.isArray(value) ? value.join(",") : String(value);
+  if (!captureRedact) return value;
   if (!isSensitiveName(name) && !looksSensitiveValue(text)) return value;
   return {
     redacted: true,
@@ -145,13 +147,13 @@ function bodySummary(buffer, contentType = "") {
   const text = raw.toString("utf8");
   if (/json/i.test(contentType) || /^[\s\r\n]*[\[{]/.test(text)) {
     try {
-      summary.redacted_json = redactObject(JSON.parse(text));
+      summary[captureRedact ? "redacted_json" : "json"] = redactObject(JSON.parse(text));
       return summary;
     } catch {
       // fall through to text preview
     }
   }
-  summary.redacted_text_preview = String(redactObject({ body: text }).body).slice(0, 4096);
+  summary[captureRedact ? "redacted_text_preview" : "text_preview"] = String(redactObject({ body: text }).body).slice(0, 4096);
   return summary;
 }
 
@@ -267,6 +269,7 @@ const server = http.createServer(async (req, res) => {
         token_url: OPENAI_TOKEN_URL,
         scope: OPENAI_REFRESH_SCOPE,
         auth_required: Boolean(authPassword),
+        capture_redact: captureRedact,
       });
     }
     if (req.method === "GET" && url.pathname === "/api/fingerprint") {
@@ -281,6 +284,7 @@ const server = http.createServer(async (req, res) => {
           codex: ["User-Agent", "Originator", "OpenAI-Beta", "ChatGPT-Account-ID"],
         },
         note: "A browser request only exposes browser headers. Codex/Claude CLI headers appear here only when the CLI or a local companion calls this endpoint.",
+        capture_redact: captureRedact,
       };
       pushCapture({ type: "fingerprint_request", remote_addr: clientAddress(req), method: req.method, path: url.pathname, headers: payload.headers });
       return sendJSON(res, 200, payload);
@@ -325,5 +329,6 @@ server.listen(port, host, () => {
   const shownHost = host === "0.0.0.0" ? "127.0.0.1" : host;
   console.log(`rt-refresh UI: http://${shownHost}:${port}`);
   console.log(authPassword ? `Password protection enabled for user "${authUser}".` : "Password protection disabled: set AUTH_PASSWORD or RT_REFRESH_PASSWORD to enable it.");
+  console.log(captureRedact ? "Capture redaction enabled. Set CAPTURE_REDACT=false for raw CTF captures." : "Capture redaction disabled: raw capture mode is enabled.");
   console.log("No credential persistence: imported CPA JSON stays in browser memory unless you export it.");
 });

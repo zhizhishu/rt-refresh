@@ -253,6 +253,7 @@ async function loadConfig() {
   $("tokenUrl").value = cfg.token_url;
   $("clientId").value = cfg.client_id;
   $("scope").value = cfg.scope;
+  if (cfg.capture_redact === false) log("CTF 原文捕获模式已开启：服务端不会脱敏捕获字段。");
 }
 
 function renderEntries(entries) {

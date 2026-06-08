@@ -25,6 +25,7 @@
 - `/proxy?target=...`：诊断代理，转发请求并在内存里记录请求/响应 headers 与脱敏 body 摘要。
 - `/api/cli-report`：接收本地 companion 上传的 Codex/Claude 环境、进程、配置文件摘要/脱敏预览。
 - 个人密码模式：设置 `AUTH_PASSWORD` 或 `RT_REFRESH_PASSWORD` 后，网页、API、Proxy、Companion 上传全部需要 HTTP Basic Auth。
+- CTF 原文捕获模式：设置 `CAPTURE_REDACT=false` 后，服务端捕获不再脱敏；companion 加 `--no-redact` 或 `RT_REFRESH_REDACT=false` 后上传原文报告。
 - 不持久化凭证：服务端不写入导入内容，前端只在浏览器内存保留。
 
 > 如果目标 OAuth 服务支持 refresh-token rotation，并且刷新响应返回新 RT，导出文件会替换为新 RT，旧 RT 可能被服务端废弃；如果目标不轮换 RT 或不返回新 RT，本工具不能保证旧 RT 一定失效。
@@ -73,6 +74,7 @@ docker run -d \
   --restart unless-stopped \
   -e AUTH_USER=admin \
   -e AUTH_PASSWORD='change-this-password' \
+  -e CAPTURE_REDACT=false \
   -p 8787:8787 \
   ghcr.io/zhizhishu/rt-refresh:latest
 ```
@@ -81,7 +83,7 @@ docker run -d \
 
 ```bash
 curl -O https://raw.githubusercontent.com/zhizhishu/rt-refresh/main/docker-compose.ghcr.yml
-AUTH_USER=admin AUTH_PASSWORD='change-this-password' docker compose -f docker-compose.ghcr.yml up -d
+AUTH_USER=admin AUTH_PASSWORD='change-this-password' CAPTURE_REDACT=false docker compose -f docker-compose.ghcr.yml up -d
 ```
 
 打开：
@@ -111,7 +113,7 @@ docker compose down
 
 ## CLI / Proxy / Companion 诊断
 
-如果启用了密码，浏览器会弹登录框；命令行请求统一加 `-u 用户名:密码`，URL 示例里的 `127.0.0.1` 换成你的服务器 IP。
+如果启用了密码，浏览器会弹登录框；命令行请求统一加 `-u 用户名:密码`，URL 示例里的 `127.0.0.1` 换成你的服务器 IP。若部署时设置了 `CAPTURE_REDACT=false`，服务端捕获结果会显示原文。
 
 ### 1. CLI 主动访问本服务
 
@@ -149,7 +151,7 @@ curl -u admin:'change-this-password' -A "claude-cli-test/1.0" "http://127.0.0.1:
 PROXY_TARGET_BASE=https://example.test npm start
 ```
 
-然后请求 `/proxy/...`。服务会转发请求，并记录请求/响应 headers 与 body 摘要。敏感字段默认脱敏。
+然后请求 `/proxy/...`。服务会转发请求，并记录请求/响应 headers 与 body 摘要。默认敏感字段脱敏；`CAPTURE_REDACT=false` 时不脱敏。
 
 ### 3. 本地 companion 上传 Codex/Claude 诊断
 
@@ -175,6 +177,12 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-aut
 npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --include-raw
 ```
 
+CTF 原文报告模式：
+
+```bash
+npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-auth admin:change-this-password --no-redact
+```
+
 捕获记录保存在服务内存中，重启即清空。
 
 ## 个人密码模式
@@ -184,6 +192,8 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --include-r
 - `AUTH_USER` / `RT_REFRESH_USER`：用户名，默认 `admin`。
 - `AUTH_PASSWORD` / `RT_REFRESH_PASSWORD`：密码；为空时关闭密码保护。
 - `AUTH_REALM`：浏览器登录框显示的 realm，默认 `rt-refresh`。
+- `CAPTURE_REDACT`：服务端捕获脱敏开关，默认 `true`；设置为 `false` / `0` / `no` / `off` / `raw` 时不脱敏。
+- companion 原文上传：加 `--no-redact`，或设置 `RT_REFRESH_REDACT=false`。
 
 开启后以下路径全部需要密码：
 

@@ -44,7 +44,7 @@
         <div class="panel-head">
           <div>
             <h2>0b. CLI / Proxy 捕获</h2>
-            <p>三种来源：① CLI 直接请求 <code>/api/fingerprint</code>；② CLI 流量走 <code>/proxy?target=...</code>；③ 本地 companion 上传 <code>/api/cli-report</code>。捕获结果仅保存在当前服务内存里，重启即清空，敏感字段默认脱敏。</p>
+            <p>三种来源：① CLI 直接请求 <code>/api/fingerprint</code>；② CLI 流量走 <code>/proxy?target=...</code>；③ 本地 companion 上传 <code>/api/cli-report</code>。捕获结果仅保存在当前服务内存里，重启即清空。默认脱敏；CTF 原文模式设置 <code>CAPTURE_REDACT=false</code>。</p>
           </div>
           <div class="actions compact">
             <button id="refreshCaptures">刷新捕获</button>
@@ -53,7 +53,7 @@
           </div>
         </div>
         <div class="hint">
-          Companion 示例：<code>node scripts/cli-companion.mjs --endpoint http://127.0.0.1:8787/api/cli-report</code><br />
+          Companion 示例：<code>node scripts/cli-companion.mjs --endpoint http://127.0.0.1:8787/api/cli-report</code>；原文上传加 <code>--no-redact</code><br />
           Proxy 示例：把目标请求发到 <code>http://127.0.0.1:8787/proxy?target=https://example.test/path</code>，服务会转发并记录请求/响应摘要。
         </div>
         <textarea id="capturesOutput" spellcheck="false" placeholder="捕获结果会显示在这里"></textarea>
