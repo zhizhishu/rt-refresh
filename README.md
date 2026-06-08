@@ -43,7 +43,7 @@ http://127.0.0.1:8787
 
 ```text
 ghcr.io/zhizhishu/rt-refresh:latest
-ghcr.io/zhizhishu/rt-refresh:fc8a534
+ghcr.io/zhizhishu/rt-refresh:3a3e23c
 ```
 
 当前 `latest` 支持 `linux/amd64` 和 `linux/arm64`。

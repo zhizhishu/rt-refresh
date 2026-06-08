@@ -32,3 +32,7 @@ Added UI multi-select improvements: file input now supports multiple files, drag
 ## 2026-06-08T01:50:50Z
 
 Fixed export usability for CPA auth directories. Added separate merged JSON download and per-account CPA JSON batch download. UI now logs whether the refresh response returned a new RT; if no new RT is returned, the old RT cannot be assumed invalid. Tests passed (`npm test`, `node --check public/app.js`, `node --check src/server.js`, `docker compose config`). Pushed multi-arch GHCR image tags `latest` and `fc8a534`; verified amd64/arm64 manifest. Digest: `sha256:5f9138f1afd2e5c96609282c75dc3e216483dda45dfced9bc5e4487868c85b0a`.
+
+## 2026-06-08T02:02:51Z
+
+Improved refresh failure diagnostics after user observed 300/300 failures with `[object Object]`. Error formatting now JSON-stringifies object-shaped OAuth error payloads. Imported file `scope` is auto-applied when the UI scope is blank/default. Sample local credential structure (redacted) had `type=codex`, `refresh_token` present, no `client_id`, and `scope=openid email profile offline_access`. Tests passed and multi-arch GHCR image tags `latest` and `3a3e23c` were pushed. Digest: `sha256:47ad13a94353794b14280f73cb24ea595f731db6c5ee15c55d784139ad2517c0`.

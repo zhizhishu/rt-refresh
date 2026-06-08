@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T01:50:50Z
+last_updated: 2026-06-08T02:02:51Z
 
 ## Current Goal
 
@@ -9,15 +9,15 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 ## Done
 
 - Implemented dependency-free Node.js API and static UI.
+- Supports multi-file import and per-account CPA JSON batch download.
 - Supports CLIProxyAPI auth JSON, sub2api `credentials`, arrays, `accounts/items/data`, and JSONL.
-- Added multi-file import: file picker supports multiple files and drag-and-drop.
-- Added account selection controls: select all refreshable, select none, invert selection.
-- Added per-account CPA JSON batch download for CLIProxyAPI `auths/` directory usage.
-- Added explicit RT rotation status logging: returned new RT means old RT may be invalidated by upstream; no new RT means old RT should not be assumed invalid.
+- Added account selection controls.
+- Improved OAuth refresh failure diagnostics: object-shaped errors no longer display as `[object Object]`.
+- Imported file `scope` auto-fills the UI scope field when default/blank.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:fc8a534`
+  - `ghcr.io/zhizhishu/rt-refresh:3a3e23c`
 - `latest` supports `linux/amd64` and `linux/arm64`.
 
 ## Validation
@@ -25,13 +25,12 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - `npm test` passed: 4/4 tests.
 - `node --check public/app.js` passed.
 - `node --check src/server.js` passed.
-- `docker compose config` passed.
 - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`.
 
 ## Server Update Command
 
 - `cd /root/rt && docker compose pull && docker compose down && docker compose up -d`
 
-## Cleanup
+## Next Diagnostic
 
-- Multi-arch builder `rt-refresh-multi` remains available locally for future releases.
+- Retry refresh after updating. If failures remain, use the now-visible upstream error text (for example `invalid_grant`, `invalid_request`, `client_id` mismatch, or scope issue) to decide the next fix.
