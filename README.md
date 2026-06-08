@@ -40,8 +40,10 @@ http://127.0.0.1:8787
 
 ```text
 ghcr.io/zhizhishu/rt-refresh:latest
-ghcr.io/zhizhishu/rt-refresh:1973d6b
+ghcr.io/zhizhishu/rt-refresh:0a1a913
 ```
+
+当前 `latest` 支持 `linux/amd64` 和 `linux/arm64`。
 
 ### docker run
 

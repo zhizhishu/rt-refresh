@@ -20,3 +20,7 @@ Pushed Docker image to GHCR as `ghcr.io/zhizhishu/rt-refresh:latest` and `ghcr.i
 ## 2026-06-07T19:20:31Z
 
 Ran GHCR image end-to-end refresh validation. Pulled `ghcr.io/zhizhishu/rt-refresh:latest` digest `sha256:f5031ca7c6b0b105247d4c6dc4522d4c60a47bb26875d64c07b5700d907dc973`, started container on host port 8790, used a local mock OAuth token endpoint, posted a batch with 3 accounts (2 with RT, 1 without RT). Result: refreshed=2, failed=1, exclusive export contained exactly 2 accounts with replaced access_token and refresh_token; no-RT account was dropped. Cleaned test container and mock process.
+
+## 2026-06-08T01:35:15Z
+
+Rebuilt and pushed GHCR multi-arch image with `docker buildx build --platform linux/amd64,linux/arm64`. Tags: `ghcr.io/zhizhishu/rt-refresh:latest` and `ghcr.io/zhizhishu/rt-refresh:0a1a913`. Verified `docker buildx imagetools inspect` shows both `linux/amd64` and `linux/arm64`. New multi-arch digest: `sha256:a86479ebe9871ff494122045ce8bc926912412ae2ccf9d3f0a6d8237ea670279`.
