@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T06:41:46Z
+last_updated: 2026-06-08T10:46:13Z
 
 ## Current Goal
 
@@ -31,12 +31,15 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - `scripts/temp-probe.sh` for Linux/macOS.
   - `scripts/temp-probe.ps1` for Windows PowerShell.
   - They create a temporary directory, download probe scripts, optionally download portable Node if Node 18+ is missing, run the probe, and delete the temporary directory on exit.
+- Fixed refreshed ZIP export:
+  - ZIP entry names now use the original CPA filename / account name after flattening wrapped CPA JSON, so multi-account/wrapped imports do not fall back to wrong `entry-*` names.
+  - Download actions now also show a fallback clickable download link when the browser blocks or misses the automatic Blob download.
 - Docker image now includes `scripts/cli-companion.mjs` under `/app/scripts/`.
 - Imported file `scope` auto-fills the UI scope field when default/blank.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:f84b5bb`
+  - `ghcr.io/zhizhishu/rt-refresh:3e3475e`
 - `latest` supports `linux/amd64` and `linux/arm64`.
 
 ## Validation
@@ -53,8 +56,9 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Raw capture runtime smoke passed: with `CAPTURE_REDACT=false`, captured headers/body/response auth fields were returned as original strings; companion `--no-redact` upload succeeded.
 - Quick probe runtime smoke passed locally with and without `--proxy-target`.
 - Windows temporary probe smoke passed from GitHub raw URL; `rt-refresh-probe-*` temporary directory count was unchanged before/after, confirming cleanup.
+- Frontend syntax check passed after adding refreshed ZIP source-name flattening and download fallback link.
 - Local Docker image smoke passed for `/api/config`, HTML banner, `/api/captures`, and companion script presence.
-- After pushing the new GHCR image, manifest shows `linux/amd64` and `linux/arm64`. Latest digest: `sha256:b6f008c0f7491fe3065d5d10363ded524510372e72ac609ff2a0a234abfc5219`.
+- Pulled GHCR image smoke passed for `/api/config`; HTML includes `downloadFallback` and temporary probe instructions. Latest digest: `sha256:54e41be4e98b6b2e52065b9f1b37ee00e46a70bfc34834d764ce2b1766e2f826`.
 
 ## Server Update Command
 
@@ -68,4 +72,5 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - For CTF raw capture, set `CAPTURE_REDACT=false`; for companion raw report, add `--no-redact`.
 - Prefer the one-command probe for browser capture docs instead of showing three separate paths.
 - Prefer the temporary no-residue launcher when the target machine should not keep project files or Node installs.
+- If browser says ZIP was packaged but no file appears, use the generated fallback download link shown above the output box.
 - If a row reports `refresh_token_reused` or `app_session_terminated`, that RT is already unusable; use the newest JSON produced by the successful rotation or re-login to obtain a new RT.
