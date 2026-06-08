@@ -111,9 +111,30 @@ http://服务器IP:8787
 docker compose down
 ```
 
-## CLI / Proxy / Companion 诊断
+## 一键捕获 / CLI 诊断
 
-如果启用了密码，浏览器会弹登录框；命令行请求统一加 `-u 用户名:密码`，URL 示例里的 `127.0.0.1` 换成你的服务器 IP。若部署时设置了 `CAPTURE_REDACT=false`，服务端捕获结果会显示原文。
+如果启用了密码，浏览器会弹登录框。最简单的用法是在“要采集的本机”运行一条命令，自动完成 CLI 打点和 companion 上传，跑完自动退出：
+
+```bash
+npm run probe -- --base http://服务器IP:8787 --basic-auth admin:change-this-password --raw
+```
+
+运行完成后，回浏览器点“0b. 一键捕获 / CLI 捕获”里的“刷新捕获”。
+
+如需顺便测试代理转发：
+
+```bash
+npm run probe -- --base http://服务器IP:8787 --basic-auth admin:change-this-password --raw --proxy-target https://example.test/path
+```
+
+参数：
+
+- `--base`：rt-refresh 服务地址。
+- `--basic-auth`：网页密码，格式 `用户名:密码`。
+- `--raw`：本机 companion 原文上传；服务端也要设置 `CAPTURE_REDACT=false` 才会原文保存捕获。
+- `--proxy-target`：可选；提供后会额外走一次 `/proxy?target=...`。
+
+下面是拆开的高级用法，正常不用看，除非你想单独测某一路。
 
 ### 1. CLI 主动访问本服务
 
