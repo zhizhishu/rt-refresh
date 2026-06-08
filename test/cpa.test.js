@@ -50,6 +50,42 @@ function withMockTokenErrorServer(payload, status, handler) {
   });
 }
 
+function withMockTokenSequenceServer(responses, handler) {
+  let calls = 0;
+  const server = http.createServer(async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    const form = new URLSearchParams(body);
+    const next = responses[Math.min(calls, responses.length - 1)];
+    calls++;
+    if (next.status >= 400) {
+      res.writeHead(next.status, { "content-type": "application/json" });
+      res.end(JSON.stringify(next.body));
+      return;
+    }
+    res.writeHead(next.status, { "content-type": "application/json" });
+    res.end(JSON.stringify(next.body || {
+      access_token: `at_new_${form.get("refresh_token")}`,
+      refresh_token: `rt_new_${form.get("refresh_token")}`,
+      id_token: "id_new",
+      token_type: "Bearer",
+      expires_in: 3600,
+    }));
+  });
+  return new Promise((resolve, reject) => {
+    server.listen(0, "127.0.0.1", async () => {
+      const { port } = server.address();
+      try {
+        resolve(await handler(`http://127.0.0.1:${port}/oauth/token`, () => calls));
+      } catch (err) {
+        reject(err);
+      } finally {
+        server.close();
+      }
+    });
+  });
+}
+
 test("analyze supports sub2api credentials shape", () => {
   const input = { accounts: [{ credentials: { access_token: "at", refresh_token: "rt", email: "a@example.test" } }] };
   const out = analyzeInput(JSON.stringify(input));
@@ -135,5 +171,38 @@ test("refreshCPA explains reused refresh token errors", async () => {
     assert.equal(out.failed, 1);
     assert.equal(out.results[0].code, "refresh_token_reused");
     assert.match(out.results[0].error, /必须使用那次返回的新 JSON\/新 RT/);
+  });
+});
+
+test("refreshCPA retries transient refresh failures", async () => {
+  await withMockTokenSequenceServer([
+    { status: 429, body: { error: "rate_limited" } },
+    { status: 200 },
+  ], async (tokenURL, calls) => {
+    const out = await refreshCPA([{ type: "codex", refresh_token: "rt_retry" }], {
+      token_url: tokenURL,
+      retry_attempts: 3,
+      retry_backoff_ms: 1,
+      canonical_only: true,
+    });
+    assert.equal(calls(), 2);
+    assert.equal(out.refreshed, 1);
+    assert.equal(out.results[0].attempts, 2);
+  });
+});
+
+test("refreshCPA does not retry non-retryable refresh errors", async () => {
+  await withMockTokenSequenceServer([
+    { status: 400, body: { error: "invalid_grant" } },
+    { status: 200 },
+  ], async (tokenURL, calls) => {
+    const out = await refreshCPA([{ type: "codex", refresh_token: "rt_dead" }], {
+      token_url: tokenURL,
+      retry_attempts: 3,
+      retry_backoff_ms: 1,
+    });
+    assert.equal(calls(), 1);
+    assert.equal(out.failed, 1);
+    assert.equal(out.results[0].code, "invalid_grant");
   });
 });

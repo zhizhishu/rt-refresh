@@ -61,7 +61,20 @@
               User-Agent
               <input id="ua" value="codex-cli/0.91.0" />
             </label>
+            <label>
+              请求间隔 ms
+              <input id="requestInterval" type="number" min="0" max="60000" value="1000" />
+            </label>
+            <label>
+              总尝试次数
+              <input id="retryAttempts" type="number" min="1" max="5" value="3" />
+            </label>
+            <label>
+              退避基准 ms
+              <input id="retryBackoff" type="number" min="0" max="60000" value="1000" />
+            </label>
           </div>
+          <p class="hint">保守模式按参考项目思路：串行刷新、间隔请求、临时错误指数退避；`invalid_grant` / `refresh_token_reused` 这类不可重试错误不会硬刷。</p>
           <div class="toggles">
             <label><input id="exclusive" type="checkbox" checked /> 只导出刷新成功的凭证</label>
             <label><input id="canonical" type="checkbox" /> 导出标准 CPA auth 数组</label>

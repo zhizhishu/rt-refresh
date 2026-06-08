@@ -247,6 +247,9 @@ async function refresh() {
         client_id: $("clientId").value.trim(),
         scope: $("scope").value.trim(),
         user_agent: $("ua").value.trim(),
+        request_interval_ms: Number($("requestInterval").value || 0),
+        retry_attempts: Number($("retryAttempts").value || 1),
+        retry_backoff_ms: Number($("retryBackoff").value || 1000),
         exclusive: $("exclusive").checked,
         canonical_only: $("canonical").checked,
         selected_indices: [...selected],
@@ -259,9 +262,9 @@ async function refresh() {
     const skippedRows = result.results.filter((r) => r.skipped);
     const skippedCount = Number(result.skipped ?? skippedRows.length);
     for (const r of failRows) log(`FAIL #${r.index}: ${r.error}`);
-    for (const r of okRows) log(`OK #${r.index}: AT#${r.access_fingerprint} RT#${r.refresh_fingerprint} ${r.rotated_refresh_token ? "返回新RT，旧RT可能失效" : "未返回新RT，旧RT不会因此失效"}`);
+    for (const r of okRows) log(`OK #${r.index}: AT#${r.access_fingerprint} RT#${r.refresh_fingerprint} attempts=${r.attempts || 1} ${r.rotated_refresh_token ? "返回新RT，旧RT可能失效" : "未返回新RT，旧RT不会因此失效"}`);
     if (skippedCount) log(`SKIP 汇总：${skippedCount} 条未选中，未刷新。`);
-    log(`完成：成功 ${result.refreshed}，失败 ${result.failed}，跳过 ${skippedCount}，exclusive=${result.exclusive}`);
+    log(`完成：成功 ${result.refreshed}，失败 ${result.failed}，跳过 ${skippedCount}，间隔=${result.request_interval_ms}ms，总尝试=${result.retry_attempts}，exclusive=${result.exclusive}`);
   } finally {
     $("refresh").disabled = false;
     $("refresh").textContent = "刷新 RT 并生成导出";

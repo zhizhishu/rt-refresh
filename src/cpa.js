@@ -260,6 +260,46 @@ function oauthErrorHint(data) {
   return "";
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
+function clampInt(value, fallback, min, max) {
+  const n = Number.parseInt(String(value ?? ""), 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function isNonRetryableRefreshError(err) {
+  const raw = `${oauthErrorCode(err?.data || {})} ${err?.message || ""}`.toLowerCase();
+  return ["invalid_grant", "refresh_token_reused", "app_session_terminated", "invalid_client", "invalid_scope"].some((x) => raw.includes(x));
+}
+
+function isRetryableRefreshError(err) {
+  if (isNonRetryableRefreshError(err)) return false;
+  const status = Number(err?.status || 0);
+  if (!status) return true;
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+async function refreshTokenWithRetry(args, options = {}) {
+  const attempts = clampInt(options.retry_attempts, 1, 1, 5);
+  const baseBackoff = clampInt(options.retry_backoff_ms, 1000, 0, 60000);
+  let lastErr;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const data = await refreshToken(args);
+      return { data, attempts: attempt };
+    } catch (err) {
+      lastErr = err;
+      err.attempts = attempt;
+      if (attempt >= attempts || !isRetryableRefreshError(err)) throw err;
+      await sleep(baseBackoff * (2 ** (attempt - 1)));
+    }
+  }
+  throw lastErr;
+}
+
 export function applyRefresh(entry, tokenResp) {
   const now = new Date();
   const out = structuredClone(entry.mutable && typeof entry.mutable === "object" ? entry.mutable : {});
@@ -337,9 +377,13 @@ export async function refreshCPA(input, options = {}) {
   const entries = flattenInput(root).map((item, index) => normalizeEntry(item, index));
   const selected = new Set(Array.isArray(options.selected_indices) ? options.selected_indices.map(Number) : entries.map((e) => e.index));
   const includeSkippedDetails = Boolean(options.include_skipped_details);
+  const requestInterval = clampInt(options.request_interval_ms, 0, 0, 60000);
+  const retryAttempts = clampInt(options.retry_attempts, 1, 1, 5);
+  const retryBackoff = clampInt(options.retry_backoff_ms, 1000, 0, 60000);
   const replacementByIndex = new Map();
   const results = [];
   let skipped = 0;
+  let attempted = 0;
   for (const entry of entries) {
     if (!selected.has(entry.index)) {
       skipped++;
@@ -350,8 +394,10 @@ export async function refreshCPA(input, options = {}) {
       results.push({ index: entry.index, label: entry.label, ok: false, error: "missing_refresh_token" });
       continue;
     }
+    if (attempted > 0 && requestInterval > 0) await sleep(requestInterval);
+    attempted++;
     try {
-      const tokenResp = await refreshToken({
+      const refreshed = await refreshTokenWithRetry({
         refresh_token: entry.credentials.refresh_token,
         client_id: options.client_id || entry.credentials.client_id || OPENAI_CODEX_CLIENT_ID,
         token_url: options.token_url || OPENAI_TOKEN_URL,
@@ -359,7 +405,8 @@ export async function refreshCPA(input, options = {}) {
         user_agent: options.user_agent || "codex-cli/0.91.0",
         extra_form: options.extra_form || {},
         timeout_ms: options.timeout_ms,
-      });
+      }, { retry_attempts: retryAttempts, retry_backoff_ms: retryBackoff });
+      const tokenResp = refreshed.data;
       const preserved = applyRefresh(entry, tokenResp);
       const canonical = toCanonicalCPA(entry, tokenResp);
       replacementByIndex.set(entry.index, { preserved, canonical });
@@ -371,6 +418,7 @@ export async function refreshCPA(input, options = {}) {
         access_fingerprint: fingerprint(tokenResp.access_token || tokenResp.accessToken),
         refresh_fingerprint: fingerprint(tokenResp.refresh_token || tokenResp.refreshToken || entry.credentials.refresh_token),
         expires_at: canonical.expired || "",
+        attempts: refreshed.attempts,
       });
     } catch (err) {
       const hint = oauthErrorHint(err.data || {});
@@ -381,6 +429,7 @@ export async function refreshCPA(input, options = {}) {
         error: hint ? `${err.message} | 提示: ${hint}` : err.message,
         status: err.status || 0,
         code: oauthErrorCode(err.data || {}),
+        attempts: err.attempts || 1,
       });
     }
   }
@@ -393,6 +442,9 @@ export async function refreshCPA(input, options = {}) {
     refreshed: results.filter((r) => r.ok).length,
     failed: results.filter((r) => r.ok === false).length,
     skipped,
+    request_interval_ms: requestInterval,
+    retry_attempts: retryAttempts,
+    retry_backoff_ms: retryBackoff,
     exclusive,
     exported: canonicalOnly ? refreshedEntries.map((x) => x.canonical) : replaceFlattened(root, replacementByIndex, exclusive),
     canonical: refreshedEntries.map((x) => x.canonical),

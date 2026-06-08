@@ -134,6 +134,7 @@ input { padding: 12px 14px; margin-top: 6px; }
 
 .form { display: grid; gap: 12px; margin-top: 16px; }
 .form label { color: var(--muted); font-size: 13px; font-weight: 700; }
+.hint { margin-top: 12px; font-size: 13px; }
 
 .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .actions.compact { margin-top: 0; }
