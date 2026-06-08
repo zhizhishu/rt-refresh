@@ -36,3 +36,7 @@ Fixed export usability for CPA auth directories. Added separate merged JSON down
 ## 2026-06-08T02:02:51Z
 
 Improved refresh failure diagnostics after user observed 300/300 failures with `[object Object]`. Error formatting now JSON-stringifies object-shaped OAuth error payloads. Imported file `scope` is auto-applied when the UI scope is blank/default. Sample local credential structure (redacted) had `type=codex`, `refresh_token` present, no `client_id`, and `scope=openid email profile offline_access`. Tests passed and multi-arch GHCR image tags `latest` and `3a3e23c` were pushed. Digest: `sha256:47ad13a94353794b14280f73cb24ea595f731db6c5ee15c55d784139ad2517c0`.
+
+## 2026-06-08T02:17:49Z
+
+User's refreshed diagnostic exposed upstream OAuth codes: `refresh_token_reused` and `app_session_terminated`. Updated service to suppress per-row `not_selected` skip spam by default, return a `skipped` count, and append user-facing hints for common OAuth failure codes. Tests passed (`npm test` 6/6, `node --check public/app.js`, `node --check src/cpa.js`, `docker compose config`). Pushed commit `4b2b915` and multi-arch GHCR tags `latest` and `4b2b915`; verified anonymous manifest access, amd64/arm64 manifest, and container `/api/config` smoke test. Latest digest: `sha256:e92e9a5ef48734cbb447053cb817bd0a4707932b65d55328daf48cccd6b51fa1`.

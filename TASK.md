@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T02:02:51Z
+last_updated: 2026-06-08T02:17:49Z
 
 ## Current Goal
 
@@ -13,19 +13,23 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Supports CLIProxyAPI auth JSON, sub2api `credentials`, arrays, `accounts/items/data`, and JSONL.
 - Added account selection controls.
 - Improved OAuth refresh failure diagnostics: object-shaped errors no longer display as `[object Object]`.
+- Added OAuth code hints for `refresh_token_reused`, `app_session_terminated`, `invalid_grant`, `invalid_scope`, and `invalid_client`.
+- Suppressed per-row `not_selected` noise by returning a skip count unless detailed skip rows are explicitly requested.
 - Imported file `scope` auto-fills the UI scope field when default/blank.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:3a3e23c`
+  - `ghcr.io/zhizhishu/rt-refresh:4b2b915`
 - `latest` supports `linux/amd64` and `linux/arm64`.
 
 ## Validation
 
-- `npm test` passed: 4/4 tests.
+- `npm test` passed: 6/6 tests.
 - `node --check public/app.js` passed.
-- `node --check src/server.js` passed.
+- `node --check src/cpa.js` passed.
+- `docker compose config` passed.
 - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`.
+- Anonymous manifest inspect passed and container `/api/config` smoke test passed.
 
 ## Server Update Command
 
@@ -33,4 +37,4 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Next Diagnostic
 
-- Retry refresh after updating. If failures remain, use the now-visible upstream error text (for example `invalid_grant`, `invalid_request`, `client_id` mismatch, or scope issue) to decide the next fix.
+- Deploy latest image and hard refresh browser. If a row reports `refresh_token_reused` or `app_session_terminated`, that RT is already unusable; use the newest JSON produced by the successful rotation or re-login to obtain a new RT.
