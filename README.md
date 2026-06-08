@@ -18,9 +18,10 @@
 - 账号勾选支持全选可刷新、全不选、反选。
 - 默认“exclusive”导出：只保留刷新成功的凭证。
 - 支持标准 CPA auth 数组导出。
+- 支持批量下载单账号 JSON；推荐用于 CLIProxyAPI `auths/` 目录。
 - 不持久化凭证：服务端不写入导入内容，前端只在浏览器内存保留。
 
-> 如果目标 OAuth 服务支持 refresh-token rotation，刷新后返回的新 RT 会替换旧 RT，旧 RT 会失效；如果目标不轮换 RT，则只能得到新 AT，无法强制旧 RT 下线。
+> 如果目标 OAuth 服务支持 refresh-token rotation，并且刷新响应返回新 RT，导出文件会替换为新 RT，旧 RT 可能被服务端废弃；如果目标不轮换 RT 或不返回新 RT，本工具不能保证旧 RT 一定失效。
 
 ## 快速开始
 

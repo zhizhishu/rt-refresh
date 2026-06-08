@@ -2,6 +2,8 @@ const $ = (id) => document.getElementById(id);
 
 let currentEntries = [];
 let selected = new Set();
+let importedSourceNames = [];
+let lastRefreshResult = null;
 
 function updateSummary() {
   const refreshable = currentEntries.filter((e) => e.has_refresh_token).length;
@@ -14,6 +16,22 @@ function log(line) {
 
 function pretty(obj) {
   return JSON.stringify(obj, null, 2);
+}
+
+function safeFileName(name, fallback = "codex-auth") {
+  const base = String(name || fallback).replace(/\.jsonl?$/i, "").replace(/[^a-zA-Z0-9@._-]+/g, "_").replace(/^_+|_+$/g, "");
+  return (base || fallback).slice(0, 120);
+}
+
+function clickDownload(text, filename) {
+  const blob = new Blob([text], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
 async function api(path, payload) {
@@ -44,6 +62,7 @@ function renderEntries(entries) {
       <b>${escapeHTML(e.label)}</b>
       <small>AT# ${e.access_fingerprint || "none"}</small>
       <small>RT# ${e.refresh_fingerprint || "none"}</small>
+      <small>src ${escapeHTML(importedSourceNames[e.index] || `#${e.index + 1}`)}</small>
       <small>exp ${escapeHTML(e.expires_at || "unknown")}</small>
       <span class="badge ${e.has_refresh_token ? "ok" : "warn"}">${e.has_refresh_token ? "RT OK" : "NO RT"}</span>
       ${e.plan_type ? `<span class="badge">${escapeHTML(e.plan_type)}</span>` : ""}
@@ -73,9 +92,14 @@ async function importFiles(fileList) {
   const files = [...fileList].filter((file) => /\.(jsonl?|txt)$/i.test(file.name) || file.type === "application/json" || file.type === "text/plain");
   if (!files.length) return log("没有可导入的 JSON/JSONL/TXT 文件。拖了个寂寞？");
   const docs = [];
+  importedSourceNames = [];
   for (const file of files) {
     const text = await file.text();
-    docs.push(...parseCredentialText(text, file.name));
+    const parsed = parseCredentialText(text, file.name);
+    parsed.forEach((doc, i) => {
+      docs.push(doc);
+      importedSourceNames.push(parsed.length === 1 ? file.name : `${file.name}#${i + 1}`);
+    });
   }
   $("input").value = pretty(docs.length === 1 ? docs[0] : docs);
   log(`已导入 ${files.length} 个文件，合并为 ${docs.length} 个 JSON 文档。`);
@@ -90,6 +114,7 @@ async function analyze() {
   const input = $("input").value.trim();
   if (!input) return log("没有输入，解析空气呢？");
   const result = await api("/api/analyze", { input });
+  if (importedSourceNames.length !== result.entries.length) importedSourceNames = result.entries.map((_, i) => `entry-${i + 1}.json`);
   renderEntries(result.entries);
   log(`解析完成：${result.count} 条，${result.refreshable} 条包含 RT。`);
 }
@@ -114,9 +139,10 @@ async function refresh() {
         selected_indices: [...selected],
       },
     });
+    lastRefreshResult = result;
     $("output").value = pretty(result.exported);
     for (const r of result.results) {
-      if (r.ok) log(`OK #${r.index}: AT#${r.access_fingerprint} RT#${r.refresh_fingerprint} rotated=${r.rotated_refresh_token}`);
+      if (r.ok) log(`OK #${r.index}: AT#${r.access_fingerprint} RT#${r.refresh_fingerprint} ${r.rotated_refresh_token ? "返回新RT，旧RT可能失效" : "未返回新RT，旧RT不会因此失效"}`);
       else if (r.skipped) log(`SKIP #${r.index}: ${r.reason}`);
       else log(`FAIL #${r.index}: ${r.error}`);
     }
@@ -148,12 +174,18 @@ function sample() {
 function download() {
   const text = $("output").value.trim();
   if (!text) return log("没有导出内容。");
-  const blob = new Blob([text], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `rt-refresh-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  clickDownload(text, `rt-refresh-merged-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+}
+
+function downloadEach() {
+  if (!lastRefreshResult?.canonical?.length) return log("没有可批量下载的刷新成功账号。先刷新，别下载空气。");
+  const okResults = lastRefreshResult.results.filter((r) => r.ok);
+  lastRefreshResult.canonical.forEach((item, i) => {
+    const result = okResults[i] || {};
+    const source = importedSourceNames[result.index] || item.email || item.account_id || `codex-${i + 1}`;
+    clickDownload(pretty(item), `${safeFileName(source, `codex-${i + 1}`)}.json`);
+  });
+  log(`已触发 ${lastRefreshResult.canonical.length} 个单账号 JSON 下载。若浏览器拦截多文件下载，请允许此站点多文件下载。`);
 }
 
 async function copyOutput() {
@@ -180,7 +212,7 @@ dropzone.addEventListener("drop", (ev) => importFiles(ev.dataTransfer.files).cat
 $("analyze").addEventListener("click", () => analyze().catch((e) => log(e.message)));
 $("refresh").addEventListener("click", () => refresh().catch((e) => log(e.message)));
 $("sample").addEventListener("click", sample);
-$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; currentEntries = []; selected.clear(); updateSummary(); log("已清空。"); });
+$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; currentEntries = []; selected.clear(); importedSourceNames = []; lastRefreshResult = null; updateSummary(); log("已清空。"); });
 $("selectAll").addEventListener("click", () => {
   document.querySelectorAll(".pick:not(:disabled)").forEach((box) => { box.checked = true; selected.add(Number(box.dataset.index)); });
   updateSummary();
@@ -199,6 +231,7 @@ $("invertSelection").addEventListener("click", () => {
   updateSummary();
 });
 $("download").addEventListener("click", download);
+$("downloadEach").addEventListener("click", downloadEach);
 $("copy").addEventListener("click", () => copyOutput().catch((e) => log(e.message)));
 
 loadConfig().catch((e) => log(e.message));
