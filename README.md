@@ -113,7 +113,21 @@ docker compose down
 
 ## 一键捕获 / CLI 诊断
 
-如果启用了密码，浏览器会弹登录框。最简单的用法是在“要采集的本机”运行一条命令，自动完成 CLI 打点和 companion 上传，跑完自动退出：
+如果启用了密码，浏览器会弹登录框。最简单的用法是在“要采集的本机”运行临时探针命令：创建临时目录，下载探针脚本，若本机没有 Node 18+ 则临时下载 portable Node，自动完成 CLI 打点和 companion 上传，最后删除临时目录并退出。
+
+Linux / macOS：
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhizhishu/rt-refresh/main/scripts/temp-probe.sh)" -- --base http://服务器IP:8787 --basic-auth admin:change-this-password --raw
+```
+
+Windows PowerShell：
+
+```powershell
+$u='https://raw.githubusercontent.com/zhizhishu/rt-refresh/main/scripts/temp-probe.ps1';$p=Join-Path $env:TEMP ('rt-probe-'+[guid]::NewGuid()+'.ps1');iwr -useb $u -OutFile $p;powershell -NoProfile -ExecutionPolicy Bypass -File $p -Base 'http://服务器IP:8787' -BasicAuth 'admin:change-this-password' -Raw;rm $p
+```
+
+如果你已经在项目目录里，也可以用本地命令：
 
 ```bash
 npm run probe -- --base http://服务器IP:8787 --basic-auth admin:change-this-password --raw
@@ -133,6 +147,13 @@ npm run probe -- --base http://服务器IP:8787 --basic-auth admin:change-this-p
 - `--basic-auth`：网页密码，格式 `用户名:密码`。
 - `--raw`：本机 companion 原文上传；服务端也要设置 `CAPTURE_REDACT=false` 才会原文保存捕获。
 - `--proxy-target`：可选；提供后会额外走一次 `/proxy?target=...`。
+
+临时探针清理规则：
+
+- 探针脚本下载到系统临时目录。
+- portable Node 只解压到本次临时目录。
+- 正常结束或报错退出都会删除本次临时目录。
+- 不写入 npm 全局包、不创建项目目录、不修改系统 PATH。
 
 下面是拆开的高级用法，正常不用看，除非你想单独测某一路。
 

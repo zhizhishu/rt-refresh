@@ -44,7 +44,7 @@
         <div class="panel-head">
           <div>
             <h2>0b. 一键捕获 / CLI 捕获</h2>
-            <p>最简单：在要采集的本机跑下面一条命令，自动打点 + 上传本机 Codex/Claude 诊断，跑完自动退出。捕获只保存在当前服务内存，重启清空。CTF 原文模式：服务端 <code>CAPTURE_REDACT=false</code>，命令加 <code>--raw</code>。</p>
+            <p>最简单：在要采集的本机跑临时探针命令。它会创建临时目录，必要时临时下载 portable Node，自动打点 + 上传 Codex/Claude 诊断，跑完删除临时目录并退出。CTF 原文模式：服务端 <code>CAPTURE_REDACT=false</code>，命令加 <code>--raw</code>。</p>
           </div>
           <div class="actions compact">
             <button id="refreshCaptures">刷新捕获</button>
@@ -53,7 +53,8 @@
           </div>
         </div>
         <div class="hint">
-          一键命令：<code>npm run probe -- --base http://服务器IP:8787 --basic-auth admin:你的密码 --raw</code><br />
+          Linux/macOS 临时命令：<code>bash -c "$(curl -fsSL https://raw.githubusercontent.com/zhizhishu/rt-refresh/main/scripts/temp-probe.sh)" -- --base http://服务器IP:8787 --basic-auth admin:你的密码 --raw</code><br />
+          Windows PowerShell 临时命令：<code>$u='https://raw.githubusercontent.com/zhizhishu/rt-refresh/main/scripts/temp-probe.ps1';$p=Join-Path $env:TEMP ('rt-probe-'+[guid]::NewGuid()+'.ps1');iwr -useb $u -OutFile $p;powershell -NoProfile -ExecutionPolicy Bypass -File $p -Base 'http://服务器IP:8787' -BasicAuth 'admin:你的密码' -Raw;rm $p</code><br />
           如需顺便测代理转发，加：<code>--proxy-target https://example.test/path</code>。跑完后点“刷新捕获”。
         </div>
         <textarea id="capturesOutput" spellcheck="false" placeholder="捕获结果会显示在这里"></textarea>
