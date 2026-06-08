@@ -16,6 +16,7 @@ function argValue(name, fallback = "") {
 }
 
 const endpoint = argValue("--endpoint", process.env.RT_REFRESH_ENDPOINT || "http://127.0.0.1:8787/api/cli-report");
+const explicitBasicAuth = argValue("--basic-auth", process.env.RT_REFRESH_BASIC_AUTH || "");
 const includeRaw = process.argv.includes("--include-raw");
 const home = os.homedir();
 
@@ -44,6 +45,61 @@ function redactObject(value, key = "") {
   if (Array.isArray(value)) return value.map((item) => redactObject(item, key));
   if (typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, redactObject(v, k)]));
   return String(value);
+}
+
+function endpointAndAuth(rawEndpoint, rawBasicAuth = "") {
+  const url = new URL(rawEndpoint);
+  let basicAuth = rawBasicAuth;
+  if ((url.username || url.password) && !basicAuth) {
+    basicAuth = `${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}`;
+    url.username = "";
+    url.password = "";
+  }
+  return {
+    endpoint: url.toString(),
+    authorization: basicAuth ? `Basic ${Buffer.from(basicAuth).toString("base64")}` : "",
+  };
+}
+
+function sanitizeEndpointForReport(rawEndpoint) {
+  try {
+    const url = new URL(rawEndpoint);
+    if (url.username || url.password) {
+      url.username = "redacted";
+      url.password = "redacted";
+    }
+    return url.toString();
+  } catch {
+    return String(redactByName("endpoint", rawEndpoint));
+  }
+}
+
+function sanitizedArgv(args) {
+  const out = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--include-raw") continue;
+    if (arg === "--basic-auth") {
+      out.push("--basic-auth", "[redacted]");
+      i++;
+      continue;
+    }
+    if (arg.startsWith("--basic-auth=")) {
+      out.push("--basic-auth=[redacted]");
+      continue;
+    }
+    if (arg === "--endpoint" && args[i + 1]) {
+      out.push("--endpoint", sanitizeEndpointForReport(args[i + 1]));
+      i++;
+      continue;
+    }
+    if (arg.startsWith("--endpoint=")) {
+      out.push(`--endpoint=${sanitizeEndpointForReport(arg.slice("--endpoint=".length))}`);
+      continue;
+    }
+    out.push(arg);
+  }
+  return out;
 }
 
 function relevantEnv() {
@@ -117,6 +173,7 @@ async function processList() {
 }
 
 async function main() {
+  const upload = endpointAndAuth(endpoint, explicitBasicAuth);
   const files = [];
   for (const file of [...new Set(candidateFiles())]) files.push(await inspectFile(file));
   const report = {
@@ -124,7 +181,7 @@ async function main() {
     ctf_authorization: "NV CTF / #jshook 000",
     collected_at: new Date().toISOString(),
     companion: {
-      argv: process.argv.slice(2).filter((arg) => arg !== "--include-raw"),
+      argv: sanitizedArgv(process.argv.slice(2)),
       include_raw: includeRaw,
       node: process.version,
       platform: process.platform,
@@ -142,9 +199,11 @@ async function main() {
       "Use --include-raw only inside the CTF lab if you intentionally want raw config text in the report.",
     ],
   };
-  const resp = await fetch(endpoint, {
+  const headers = { "content-type": "application/json", "user-agent": `rt-refresh-companion/${process.version}` };
+  if (upload.authorization) headers.authorization = upload.authorization;
+  const resp = await fetch(upload.endpoint, {
     method: "POST",
-    headers: { "content-type": "application/json", "user-agent": `rt-refresh-companion/${process.version}` },
+    headers,
     body: JSON.stringify(report),
   });
   const text = await resp.text();

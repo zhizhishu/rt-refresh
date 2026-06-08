@@ -12,6 +12,9 @@ const port = Number(process.env.PORT || 8787);
 const host = process.env.HOST || "127.0.0.1";
 const captureLimit = Number(process.env.CAPTURE_LIMIT || 500);
 const proxyTargetBase = process.env.PROXY_TARGET_BASE || "";
+const authUser = process.env.AUTH_USER || process.env.RT_REFRESH_USER || "admin";
+const authPassword = process.env.AUTH_PASSWORD || process.env.RT_REFRESH_PASSWORD || "";
+const authRealm = process.env.AUTH_REALM || "rt-refresh";
 const captures = [];
 
 const contentTypes = {
@@ -28,6 +31,40 @@ function sendJSON(res, status, data) {
     "cache-control": "no-store",
   });
   res.end(JSON.stringify(data));
+}
+
+function timingSafeTextEqual(a, b) {
+  const left = crypto.createHash("sha256").update(String(a)).digest();
+  const right = crypto.createHash("sha256").update(String(b)).digest();
+  return crypto.timingSafeEqual(left, right);
+}
+
+function parseBasicAuth(header) {
+  if (!header || !String(header).startsWith("Basic ")) return null;
+  try {
+    const decoded = Buffer.from(String(header).slice(6), "base64").toString("utf8");
+    const split = decoded.indexOf(":");
+    if (split < 0) return null;
+    return { user: decoded.slice(0, split), password: decoded.slice(split + 1) };
+  } catch {
+    return null;
+  }
+}
+
+function checkAuth(req) {
+  if (!authPassword) return true;
+  const basic = parseBasicAuth(req.headers.authorization);
+  if (!basic) return false;
+  return timingSafeTextEqual(basic.user, authUser) && timingSafeTextEqual(basic.password, authPassword);
+}
+
+function sendUnauthorized(res) {
+  res.writeHead(401, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "www-authenticate": `Basic realm="${authRealm.replace(/"/g, "")}"`,
+  });
+  res.end(JSON.stringify({ error: "auth_required", message: "用户名或密码不正确" }));
 }
 
 function isSensitiveName(name) {
@@ -222,12 +259,14 @@ async function serveStatic(req, res) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (!checkAuth(req)) return sendUnauthorized(res);
     const url = new URL(req.url, "http://localhost");
     if (req.method === "GET" && url.pathname === "/api/config") {
       return sendJSON(res, 200, {
         client_id: OPENAI_CODEX_CLIENT_ID,
         token_url: OPENAI_TOKEN_URL,
         scope: OPENAI_REFRESH_SCOPE,
+        auth_required: Boolean(authPassword),
       });
     }
     if (req.method === "GET" && url.pathname === "/api/fingerprint") {
@@ -285,5 +324,6 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, host, () => {
   const shownHost = host === "0.0.0.0" ? "127.0.0.1" : host;
   console.log(`rt-refresh UI: http://${shownHost}:${port}`);
+  console.log(authPassword ? `Password protection enabled for user "${authUser}".` : "Password protection disabled: set AUTH_PASSWORD or RT_REFRESH_PASSWORD to enable it.");
   console.log("No credential persistence: imported CPA JSON stays in browser memory unless you export it.");
 });

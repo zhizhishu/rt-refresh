@@ -24,6 +24,7 @@
 - `/api/fingerprint`：记录请求该接口的客户端 headers，适合让 Codex/Claude CLI 主动访问以获取真实 CLI UA/headers。
 - `/proxy?target=...`：诊断代理，转发请求并在内存里记录请求/响应 headers 与脱敏 body 摘要。
 - `/api/cli-report`：接收本地 companion 上传的 Codex/Claude 环境、进程、配置文件摘要/脱敏预览。
+- 个人密码模式：设置 `AUTH_PASSWORD` 或 `RT_REFRESH_PASSWORD` 后，网页、API、Proxy、Companion 上传全部需要 HTTP Basic Auth。
 - 不持久化凭证：服务端不写入导入内容，前端只在浏览器内存保留。
 
 > 如果目标 OAuth 服务支持 refresh-token rotation，并且刷新响应返回新 RT，导出文件会替换为新 RT，旧 RT 可能被服务端废弃；如果目标不轮换 RT 或不返回新 RT，本工具不能保证旧 RT 一定失效。
@@ -38,6 +39,18 @@ npm start
 
 ```text
 http://127.0.0.1:8787
+```
+
+个人使用建议启用密码：
+
+```bash
+AUTH_USER=admin AUTH_PASSWORD='change-this-password' npm start
+```
+
+Windows PowerShell：
+
+```powershell
+$env:AUTH_USER='admin'; $env:AUTH_PASSWORD='change-this-password'; npm start
 ```
 
 
@@ -58,6 +71,8 @@ ghcr.io/zhizhishu/rt-refresh:5f244b9
 docker run -d \
   --name rt-refresh \
   --restart unless-stopped \
+  -e AUTH_USER=admin \
+  -e AUTH_PASSWORD='change-this-password' \
   -p 8787:8787 \
   ghcr.io/zhizhishu/rt-refresh:latest
 ```
@@ -66,7 +81,7 @@ docker run -d \
 
 ```bash
 curl -O https://raw.githubusercontent.com/zhizhishu/rt-refresh/main/docker-compose.ghcr.yml
-docker compose -f docker-compose.ghcr.yml up -d
+AUTH_USER=admin AUTH_PASSWORD='change-this-password' docker compose -f docker-compose.ghcr.yml up -d
 ```
 
 打开：
@@ -96,12 +111,20 @@ docker compose down
 
 ## CLI / Proxy / Companion 诊断
 
+如果启用了密码，浏览器会弹登录框；命令行请求统一加 `-u 用户名:密码`，URL 示例里的 `127.0.0.1` 换成你的服务器 IP。
+
 ### 1. CLI 主动访问本服务
 
 让任意 CLI 或脚本请求：
 
 ```bash
 curl -A "codex-cli/0.91.0" http://127.0.0.1:8787/api/fingerprint
+```
+
+启用密码时：
+
+```bash
+curl -u admin:'change-this-password' -A "codex-cli/0.91.0" http://127.0.0.1:8787/api/fingerprint
 ```
 
 服务会在“CLI / Proxy 捕获”里记录该请求的服务端可见 headers。
@@ -112,6 +135,12 @@ curl -A "codex-cli/0.91.0" http://127.0.0.1:8787/api/fingerprint
 
 ```text
 http://127.0.0.1:8787/proxy?target=https://example.test/path
+```
+
+启用密码时：
+
+```bash
+curl -u admin:'change-this-password' -A "claude-cli-test/1.0" "http://127.0.0.1:8787/proxy?target=https://example.test/path"
 ```
 
 或用环境变量指定基础目标：
@@ -128,6 +157,12 @@ PROXY_TARGET_BASE=https://example.test npm start
 npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report
 ```
 
+如果服务启用了密码，传 `--basic-auth 用户名:密码`：
+
+```bash
+npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-auth admin:change-this-password
+```
+
 默认采集：
 
 - Codex/Claude/OpenAI/Anthropic/Stainless/proxy 相关环境变量
@@ -141,6 +176,27 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --include-r
 ```
 
 捕获记录保存在服务内存中，重启即清空。
+
+## 个人密码模式
+
+环境变量：
+
+- `AUTH_USER` / `RT_REFRESH_USER`：用户名，默认 `admin`。
+- `AUTH_PASSWORD` / `RT_REFRESH_PASSWORD`：密码；为空时关闭密码保护。
+- `AUTH_REALM`：浏览器登录框显示的 realm，默认 `rt-refresh`。
+
+开启后以下路径全部需要密码：
+
+- 网页静态资源
+- `/api/config`
+- `/api/fingerprint`
+- `/api/captures`
+- `/api/cli-report`
+- `/api/analyze`
+- `/api/refresh`
+- `/proxy?target=...`
+
+注意：HTTP Basic Auth 只是访问控制；如果你把服务放公网，建议再套 HTTPS 反代或 SSH 隧道，否则密码会在明文 HTTP 链路上传输。
 
 ## 测试
 
