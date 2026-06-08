@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T15:30:00Z
+last_updated: 2026-06-08T15:37:01Z
 
 ## Current Goal
 
@@ -54,8 +54,8 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Updated README with OAuth APIs, quota display rules, and reference-derived OAuth parameters.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:ab5179d`
-- `latest` digest: `sha256:4900a87dc32ce8d1f8bf104524cf90345fb43353e06c955d897b17d6ccddd18a`.
+  - `ghcr.io/zhizhishu/rt-refresh:a3de128`
+- `latest` digest: `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`.
 
 ## Validation
 
@@ -80,7 +80,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - `node --check public/app.js` passed.
   - OAuth mock smoke passed for `/api/oauth/start`, `/oauth/callback`, `/api/oauth/latest`, `/api/oauth/download/latest`, and UI panel presence.
   - GHCR pulled-image smoke passed for `/api/config`, OAuth panel, quota panel, `/api/oauth/start`, and `/api/captures`.
-  - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`; digest `sha256:4900a87dc32ce8d1f8bf104524cf90345fb43353e06c955d897b17d6ccddd18a`.
+  - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`; digest `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`.
 
 ## Server Update Command
 
@@ -88,7 +88,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Next Diagnostic
 
-- Deploy latest image (`ab5179d` / digest `sha256:4900a87dc32ce8d1f8bf104524cf90345fb43353e06c955d897b17d6ccddd18a`) and hard refresh browser.
+- Deploy latest image (`a3de128` / digest `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`) and hard refresh browser.
 - Use the new `0b. CLI / Proxy 捕获` panel for CLI active requests, proxy captures, and companion reports.
 - For personal use, set `AUTH_USER` and `AUTH_PASSWORD` in Docker Compose before exposing the port.
 - For CTF raw capture, set `CAPTURE_REDACT=false`; for companion raw report, add `--no-redact`.

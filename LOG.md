@@ -88,4 +88,4 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Added in-memory OAuth result APIs and CPA JSON download endpoints.
 - Added imported credential details panel with AT remaining time and 5-hour quota/window display.
 - Validated syntax, npm tests, OAuth mock smoke, GHCR manifest, and pulled-image smoke.
-- Pushed commit `ab5179d` and GHCR images `latest` / `ab5179d`; digest `sha256:4900a87dc32ce8d1f8bf104524cf90345fb43353e06c955d897b17d6ccddd18a`.
+- Pushed commit `a3de128` and GHCR images `latest` / `a3de128`; digest `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`.
