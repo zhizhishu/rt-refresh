@@ -28,3 +28,7 @@ Rebuilt and pushed GHCR multi-arch image with `docker buildx build --platform li
 ## 2026-06-08T01:41:37Z
 
 Added UI multi-select improvements: file input now supports multiple files, drag-and-drop imports multiple JSON/JSONL/TXT files, and account selection toolbar supports select all refreshable, select none, and invert selection. Tests passed (`npm test`, `node --check public/app.js`, `node --check src/server.js`, `docker compose config`). Pushed multi-arch GHCR image tags `latest` and `ac43063`; verified `linux/amd64` and `linux/arm64` in manifest. New digest: `sha256:e4e9c7acbd5d0e017ee8818daeac58886c0fcb95527f8640ac7cd4a3ee1bf7f3`.
+
+## 2026-06-08T01:50:50Z
+
+Fixed export usability for CPA auth directories. Added separate merged JSON download and per-account CPA JSON batch download. UI now logs whether the refresh response returned a new RT; if no new RT is returned, the old RT cannot be assumed invalid. Tests passed (`npm test`, `node --check public/app.js`, `node --check src/server.js`, `docker compose config`). Pushed multi-arch GHCR image tags `latest` and `fc8a534`; verified amd64/arm64 manifest. Digest: `sha256:5f9138f1afd2e5c96609282c75dc3e216483dda45dfced9bc5e4487868c85b0a`.
