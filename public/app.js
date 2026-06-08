@@ -4,6 +4,7 @@ let currentEntries = [];
 let selected = new Set();
 let importedSourceNames = [];
 let lastRefreshResult = null;
+let lastDownloadObjectUrl = "";
 
 function updateSummary() {
   const refreshable = currentEntries.filter((e) => e.has_refresh_token).length;
@@ -148,19 +149,39 @@ function safeFileName(name, fallback = "codex-auth") {
   return (base || fallback).slice(0, 120);
 }
 
+function candidateNameFromEntry(entry) {
+  return entry?.name || entry?.label || entry?.email || entry?.account_id ||
+    entry?.credentials?.name || entry?.credentials?.email || entry?.credentials?.account_id ||
+    entry?.profile?.email || "";
+}
+
+function sourceNameForImportedEntry(fileName, entry, flatIndex = 0, flatCount = 1) {
+  const fileBase = safeFileName(fileName, "codex-auth");
+  const entryName = safeFileName(candidateNameFromEntry(entry), "");
+  if (flatCount <= 1) return entryName || fileBase;
+  return entryName ? `${fileBase}-${entryName}` : `${fileBase}-${flatIndex + 1}`;
+}
+
 function clickDownload(text, filename) {
   const blob = new Blob([text], { type: "application/json" });
   clickDownloadBlob(blob, filename);
 }
 
 function clickDownloadBlob(blob, filename) {
+  if (lastDownloadObjectUrl) URL.revokeObjectURL(lastDownloadObjectUrl);
+  const url = URL.createObjectURL(blob);
+  lastDownloadObjectUrl = url;
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  const fallback = $("downloadFallback");
+  if (fallback) {
+    fallback.style.display = "block";
+    fallback.innerHTML = `如果浏览器没有自动下载，<a href="${url}" download="${escapeHTML(filename)}">点这里手动下载 ${escapeHTML(filename)}</a>`;
+  }
 }
 
 const crcTable = (() => {
@@ -235,6 +256,7 @@ function downloadJsonZip(items, zipName, fallbackPrefix = "codex") {
     return { name: filename, text: pretty(item.value) };
   });
   clickDownloadBlob(makeZip(files), zipName);
+  return files.length;
 }
 
 async function api(path, payload) {
@@ -332,7 +354,11 @@ async function importFiles(fileList) {
     const parsed = parseCredentialText(text, file.name);
     parsed.forEach((doc, i) => {
       docs.push(doc);
-      importedSourceNames.push(parsed.length === 1 ? file.name : `${file.name}#${i + 1}`);
+      const flattened = flattenClientInput(doc);
+      flattened.forEach((entry, j) => {
+        const base = sourceNameForImportedEntry(file.name, entry, j, flattened.length);
+        importedSourceNames.push(parsed.length === 1 ? base : `${base}-${i + 1}`);
+      });
     });
   }
   $("input").value = pretty(docs.length === 1 ? docs[0] : docs);
@@ -426,11 +452,11 @@ function downloadEachRefreshed() {
     const okResults = lastRefreshResult.results.filter((r) => r.ok);
     const items = lastRefreshResult.canonical.map((item, i) => {
       const result = okResults[i] || {};
-      const source = importedSourceNames[result.index] || item.email || item.account_id || `codex-${i + 1}`;
+      const source = importedSourceNames[result.index] || result.label || candidateNameFromEntry(item) || `codex-${i + 1}`;
       return { name: source, value: item };
     });
-    downloadJsonZip(items, `rt-refresh-refreshed-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`, "codex");
-    log(`已打包 ${lastRefreshResult.canonical.length} 个刷新后单账号 JSON 到 ZIP。`);
+    const count = downloadJsonZip(items, `rt-refresh-refreshed-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`, "codex");
+    log(`已打包 ${count} 个刷新后单账号 JSON 到 ZIP，并生成备用下载链接。文件名按 CPA 原始文件名/账号名扁平化。`);
     return;
   }
   if (lastRefreshResult && !lastRefreshResult.canonical?.length) {
@@ -450,11 +476,11 @@ function downloadEachImported() {
   }
   if (!docs.length) return log("没有可下载的单账号 JSON。");
   const items = docs.map((item, i) => {
-    const source = importedSourceNames[i] || item?.email || item?.account_id || item?.credentials?.email || `codex-${i + 1}`;
+    const source = importedSourceNames[i] || candidateNameFromEntry(item) || `codex-${i + 1}`;
     return { name: source, value: item };
   });
-  downloadJsonZip(items, `rt-refresh-imported-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`, "codex");
-  log(`已打包 ${docs.length} 个原始单账号 JSON 到 ZIP。注意：这是旧凭证备份，不是刷新后的凭证。`);
+  const count = downloadJsonZip(items, `rt-refresh-imported-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`, "codex");
+  log(`已打包 ${count} 个原始单账号 JSON 到 ZIP，并生成备用下载链接。注意：这是旧凭证备份，不是刷新后的凭证。`);
 }
 
 async function copyOutput() {

@@ -151,6 +151,22 @@ input { padding: 12px 14px; margin-top: 6px; }
 .form label { color: var(--muted); font-size: 13px; font-weight: 700; }
 .hint { margin-top: 12px; font-size: 13px; }
 
+.download-fallback {
+  display: none;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px dashed rgba(125, 211, 252, 0.45);
+  border-radius: 12px;
+  background: rgba(14, 165, 233, 0.08);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.download-fallback a {
+  color: var(--accent);
+  font-weight: 800;
+}
+
 .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .actions.compact { margin-top: 0; }
 
