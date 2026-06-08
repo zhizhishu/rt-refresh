@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T02:24:30Z
+last_updated: 2026-06-08T02:38:30Z
 
 ## Current Goal
 
@@ -10,27 +10,28 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 - Implemented dependency-free Node.js API and static UI.
 - Supports multi-file import and per-account CPA JSON batch download.
-- Supports CLIProxyAPI auth JSON, sub2api `credentials`, arrays, `accounts/items/data`, and JSONL.
+- Supports CLIProxyAPI auth JSON, sub2api `credentials`, arrays, `accounts/items/data`, JSONL, and pasted raw `rt...` lines.
 - Added account selection controls.
 - Improved OAuth refresh failure diagnostics: object-shaped errors no longer display as `[object Object]`.
 - Added OAuth code hints for `refresh_token_reused`, `app_session_terminated`, `invalid_grant`, `invalid_scope`, and `invalid_client`.
 - Suppressed per-row `not_selected` noise by returning a skip count unless detailed skip rows are explicitly requested.
 - Split single-account exports into explicit refreshed downloads and original-import backups to prevent accidentally downloading stale credentials as refreshed output.
+- Single-account exports are packaged as ZIP files instead of triggering many separate JSON downloads.
 - Imported file `scope` auto-fills the UI scope field when default/blank.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:78af67d`
+  - `ghcr.io/zhizhishu/rt-refresh:88784c6`
 - `latest` supports `linux/amd64` and `linux/arm64`.
 
 ## Validation
 
-- `npm test` passed: 6/6 tests.
+- `npm test` passed: 8/8 tests.
 - `node --check public/app.js` passed.
 - `node --check src/cpa.js` passed.
 - `docker compose config` passed.
 - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`.
-- Anonymous manifest inspect passed and container `/api/config` smoke test passed for digest `sha256:f7a29e0d7295191063ac0f2766e9b196d447f961a0d35e87ad78a685ad4a4a4f`.
+- Anonymous manifest inspect passed; after pulling the new image, container `/api/config` and raw RT `/api/analyze` smoke tests passed for digest `sha256:9b9bd2f6007a5b5455d26f2cb6fd45203ceb2699805335f6ee8f047a448e58e3`.
 
 ## Server Update Command
 

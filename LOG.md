@@ -44,3 +44,7 @@ User's refreshed diagnostic exposed upstream OAuth codes: `refresh_token_reused`
 ## 2026-06-08T02:24:30Z
 
 Separated single-account export buttons after the UI let users download imported original JSON before a successful refresh. New UI has `下载刷新后单账号JSON` for refreshed canonical credentials only and `下载导入原始单账号JSON` for backups. Tests passed (`npm test` 6/6, `node --check public/app.js`, `node --check src/cpa.js`, `docker compose config`). Pushed commit `78af67d` and multi-arch GHCR tags `latest` and `78af67d`; verified anonymous manifest access, amd64/arm64 manifest, and container `/api/config` smoke test. Latest digest: `sha256:f7a29e0d7295191063ac0f2766e9b196d447f961a0d35e87ad78a685ad4a4a4f`.
+
+## 2026-06-08T02:38:30Z
+
+Added raw RT paste support and ZIP exports. `loadInput` and the UI parser now accept pasted/raw text with one `rt...` refresh token per line and convert each line into a Codex auth object. Refreshed and original per-account exports now download as a single ZIP containing one JSON file per account. Tests passed (`npm test` 8/8, `node --check public/app.js`, `node --check src/cpa.js`, `docker compose config`). Pushed commit `88784c6` and multi-arch GHCR tags `latest` and `88784c6`; verified anonymous manifest access, amd64/arm64 manifest, pulled latest, and smoke-tested `/api/config` plus raw RT `/api/analyze`. Latest digest: `sha256:9b9bd2f6007a5b5455d26f2cb6fd45203ceb2699805335f6ee8f047a448e58e3`.
