@@ -222,6 +222,23 @@ function formatOAuthError(data, fallbackText = "") {
   try { return JSON.stringify(data); } catch { return String(data || ""); }
 }
 
+function oauthErrorCode(data) {
+  for (const value of [data?.code, data?.error, data?.type]) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function oauthErrorHint(data) {
+  const code = oauthErrorCode(data);
+  if (code === "refresh_token_reused") return "这个 RT 已经被用过；必须使用那次返回的新 JSON/新 RT，或重新登录获取新 RT。旧 RT 不能再刷新。";
+  if (code === "app_session_terminated") return "这个会话已结束；需要重新登录获取新 RT。";
+  if (code === "invalid_grant") return "RT 已失效、撤销或过期，不能靠刷新复活。";
+  if (code === "invalid_scope") return "scope 不匹配；优先使用导入文件里的 scope。";
+  if (code === "invalid_client") return "client_id 不匹配；检查是否应使用 Codex client_id。";
+  return "";
+}
+
 export function applyRefresh(entry, tokenResp) {
   const now = new Date();
   const out = structuredClone(entry.mutable && typeof entry.mutable === "object" ? entry.mutable : {});
@@ -298,11 +315,14 @@ export async function refreshCPA(input, options = {}) {
   const root = loadInput(input);
   const entries = flattenInput(root).map((item, index) => normalizeEntry(item, index));
   const selected = new Set(Array.isArray(options.selected_indices) ? options.selected_indices.map(Number) : entries.map((e) => e.index));
+  const includeSkippedDetails = Boolean(options.include_skipped_details);
   const replacementByIndex = new Map();
   const results = [];
+  let skipped = 0;
   for (const entry of entries) {
     if (!selected.has(entry.index)) {
-      results.push({ index: entry.index, label: entry.label, skipped: true, reason: "not_selected" });
+      skipped++;
+      if (includeSkippedDetails) results.push({ index: entry.index, label: entry.label, skipped: true, reason: "not_selected" });
       continue;
     }
     if (!entry.credentials.refresh_token) {
@@ -332,7 +352,15 @@ export async function refreshCPA(input, options = {}) {
         expires_at: canonical.expired || "",
       });
     } catch (err) {
-      results.push({ index: entry.index, label: entry.label, ok: false, error: err.message, status: err.status || 0 });
+      const hint = oauthErrorHint(err.data || {});
+      results.push({
+        index: entry.index,
+        label: entry.label,
+        ok: false,
+        error: hint ? `${err.message} | 提示: ${hint}` : err.message,
+        status: err.status || 0,
+        code: oauthErrorCode(err.data || {}),
+      });
     }
   }
   const refreshedEntries = [...replacementByIndex.values()];
@@ -343,6 +371,7 @@ export async function refreshCPA(input, options = {}) {
     total: entries.length,
     refreshed: results.filter((r) => r.ok).length,
     failed: results.filter((r) => r.ok === false).length,
+    skipped,
     exclusive,
     exported: canonicalOnly ? refreshedEntries.map((x) => x.canonical) : replaceFlattened(root, replacementByIndex, exclusive),
     canonical: refreshedEntries.map((x) => x.canonical),

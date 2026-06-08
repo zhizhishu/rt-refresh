@@ -159,10 +159,11 @@ async function refresh() {
     const okRows = result.results.filter((r) => r.ok);
     const failRows = result.results.filter((r) => r.ok === false);
     const skippedRows = result.results.filter((r) => r.skipped);
+    const skippedCount = Number(result.skipped ?? skippedRows.length);
     for (const r of failRows) log(`FAIL #${r.index}: ${r.error}`);
     for (const r of okRows) log(`OK #${r.index}: AT#${r.access_fingerprint} RT#${r.refresh_fingerprint} ${r.rotated_refresh_token ? "返回新RT，旧RT可能失效" : "未返回新RT，旧RT不会因此失效"}`);
-    if (skippedRows.length) log(`SKIP 汇总：${skippedRows.length} 条未选中，未刷新。`);
-    log(`完成：成功 ${result.refreshed}，失败 ${result.failed}，跳过 ${skippedRows.length}，exclusive=${result.exclusive}`);
+    if (skippedCount) log(`SKIP 汇总：${skippedCount} 条未选中，未刷新。`);
+    log(`完成：成功 ${result.refreshed}，失败 ${result.failed}，跳过 ${skippedCount}，exclusive=${result.exclusive}`);
   } finally {
     $("refresh").disabled = false;
     $("refresh").textContent = "刷新 RT 并生成导出";

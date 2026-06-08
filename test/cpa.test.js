@@ -31,6 +31,25 @@ function withMockTokenServer(handler) {
   });
 }
 
+function withMockTokenErrorServer(payload, status, handler) {
+  const server = http.createServer(async (_req, res) => {
+    res.writeHead(status, { "content-type": "application/json" });
+    res.end(JSON.stringify(payload));
+  });
+  return new Promise((resolve, reject) => {
+    server.listen(0, "127.0.0.1", async () => {
+      const { port } = server.address();
+      try {
+        resolve(await handler(`http://127.0.0.1:${port}/oauth/token`));
+      } catch (err) {
+        reject(err);
+      } finally {
+        server.close();
+      }
+    });
+  });
+}
+
 test("analyze supports sub2api credentials shape", () => {
   const input = { accounts: [{ credentials: { access_token: "at", refresh_token: "rt", email: "a@example.test" } }] };
   const out = analyzeInput(JSON.stringify(input));
@@ -73,5 +92,32 @@ test("refreshCPA can export canonical CPA auth array", async () => {
     assert.equal(out.exported[0].access_token, "at_new_old-rt");
     assert.equal(out.exported[0].refresh_token, "rt_new_old-rt");
     assert.equal(out.exported[0].email, "me@example.test");
+  });
+});
+
+test("refreshCPA summarizes unselected rows instead of returning skip spam", async () => {
+  await withMockTokenServer(async (tokenURL) => {
+    const input = [
+      { type: "codex", access_token: "old-at-1", refresh_token: "old-rt-1" },
+      { type: "codex", access_token: "old-at-2", refresh_token: "old-rt-2" },
+    ];
+    const out = await refreshCPA(input, { token_url: tokenURL, selected_indices: [0] });
+    assert.equal(out.refreshed, 1);
+    assert.equal(out.skipped, 1);
+    assert.equal(out.results.some((r) => r.skipped), false);
+  });
+});
+
+test("refreshCPA explains reused refresh token errors", async () => {
+  await withMockTokenErrorServer({
+    message: "Your refresh token has already been used to generate a new access token. Please try signing in again.",
+    type: "invalid_request_error",
+    code: "refresh_token_reused",
+  }, 400, async (tokenURL) => {
+    const input = [{ type: "codex", access_token: "old-at", refresh_token: "old-rt" }];
+    const out = await refreshCPA(input, { token_url: tokenURL });
+    assert.equal(out.failed, 1);
+    assert.equal(out.results[0].code, "refresh_token_reused");
+    assert.match(out.results[0].error, /必须使用那次返回的新 JSON\/新 RT/);
   });
 });
