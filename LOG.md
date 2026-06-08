@@ -80,3 +80,12 @@ Added no-residue temporary probe launchers. `scripts/temp-probe.sh` and `scripts
 ## 2026-06-08T10:46:13Z
 
 Fixed refreshed ZIP export naming and download reliability. Imported source names are now expanded per flattened CPA entry, so wrapped/multi-account CPA JSON preserves original file/account-derived names instead of mismatching `entry-*` indexes. Refreshed ZIP export maps successful result indexes back to those flattened source names, and both refreshed/original ZIP actions now create a visible fallback download link above the output box in case the browser blocks the automatic Blob download. Validation passed: `npm test` 10/10, `node --check public/app.js`, `node --check src/server.js`, `node --check src/cpa.js`, `node --check scripts/cli-companion.mjs`, `node --check scripts/quick-probe.mjs`, `bash -n scripts/temp-probe.sh`, `docker compose config`, multi-arch GHCR build/push, manifest inspection, and pulled-GHCR smoke for `/api/config` plus HTML `downloadFallback` presence. Pushed commit `3e3475e` and multi-arch GHCR tags `latest` and `3e3475e`. Latest digest: `sha256:54e41be4e98b6b2e52065b9f1b37ee00e46a70bfc34834d764ce2b1766e2f826`.
+
+
+## 2026-06-08T15:28:42Z - Codex OAuth login and credential quota view
+
+- Implemented online Codex OAuth login/callback flow using reference-derived PKCE parameters and `codex-cli/0.91.0` token exchange UA.
+- Added in-memory OAuth result APIs and CPA JSON download endpoints.
+- Added imported credential details panel with AT remaining time and 5-hour quota/window display.
+- Validated syntax, npm tests, OAuth mock smoke, GHCR manifest, and pulled-image smoke.
+- Pushed commit `ab5179d` and GHCR images `latest` / `ab5179d`; digest `sha256:4900a87dc32ce8d1f8bf104524cf90345fb43353e06c955d897b17d6ccddd18a`.

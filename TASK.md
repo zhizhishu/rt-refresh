@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T10:46:13Z
+last_updated: 2026-06-08T15:30:00Z
 
 ## Current Goal
 
@@ -42,6 +42,21 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - `ghcr.io/zhizhishu/rt-refresh:3e3475e`
 - `latest` supports `linux/amd64` and `linux/arm64`.
 
+- Added online Codex OAuth login / callback flow based on reference projects:
+  - `GET /api/oauth/start` creates in-memory PKCE session and returns Codex authorize URL.
+  - `GET /oauth/callback` exchanges code with Codex token endpoint using `codex-cli/0.91.0` User-Agent.
+  - `GET /api/oauth/latest` lists in-memory login results.
+  - `GET /api/oauth/download/latest` / `:id` downloads CPA JSON.
+- Added imported credential details panel:
+  - Shows source, email/account/user/org/plan, AT/RT/ID summary or CTF raw token text.
+  - Shows AT remaining time.
+  - Shows 5-hour quota/window from imported `quota_5h_*` / `rate_limit_reset_at` fields, or local `last_refresh + 5h` estimate when no upstream quota field exists.
+- Updated README with OAuth APIs, quota display rules, and reference-derived OAuth parameters.
+- Pushed multi-arch GHCR images:
+  - `ghcr.io/zhizhishu/rt-refresh:latest`
+  - `ghcr.io/zhizhishu/rt-refresh:ab5179d`
+- `latest` digest: `sha256:4900a87dc32ce8d1f8bf104524cf90345fb43353e06c955d897b17d6ccddd18a`.
+
 ## Validation
 
 - `npm test` passed: 10/10 tests.
@@ -60,13 +75,20 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Local Docker image smoke passed for `/api/config`, HTML banner, `/api/captures`, and companion script presence.
 - Pulled GHCR image smoke passed for `/api/config`; HTML includes `downloadFallback` and temporary probe instructions. Latest digest: `sha256:54e41be4e98b6b2e52065b9f1b37ee00e46a70bfc34834d764ce2b1766e2f826`.
 
+- Added feature validation:
+  - `node --check src/server.js` passed.
+  - `node --check public/app.js` passed.
+  - OAuth mock smoke passed for `/api/oauth/start`, `/oauth/callback`, `/api/oauth/latest`, `/api/oauth/download/latest`, and UI panel presence.
+  - GHCR pulled-image smoke passed for `/api/config`, OAuth panel, quota panel, `/api/oauth/start`, and `/api/captures`.
+  - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`; digest `sha256:4900a87dc32ce8d1f8bf104524cf90345fb43353e06c955d897b17d6ccddd18a`.
+
 ## Server Update Command
 
 - `cd /root/rt && docker compose pull && docker compose down && docker compose up -d`
 
 ## Next Diagnostic
 
-- Deploy latest image and hard refresh browser.
+- Deploy latest image (`ab5179d` / digest `sha256:4900a87dc32ce8d1f8bf104524cf90345fb43353e06c955d897b17d6ccddd18a`) and hard refresh browser.
 - Use the new `0b. CLI / Proxy 捕获` panel for CLI active requests, proxy captures, and companion reports.
 - For personal use, set `AUTH_USER` and `AUTH_PASSWORD` in Docker Compose before exposing the port.
 - For CTF raw capture, set `CAPTURE_REDACT=false`; for companion raw report, add `--no-redact`.

@@ -67,7 +67,7 @@ $env:AUTH_USER='admin'; $env:AUTH_PASSWORD='change-this-password'; npm start
 
 ```text
 ghcr.io/zhizhishu/rt-refresh:latest
-ghcr.io/zhizhishu/rt-refresh:3e3475e
+ghcr.io/zhizhishu/rt-refresh:ab5179d
 ```
 
 当前 `latest` 支持 `linux/amd64` 和 `linux/arm64`。
