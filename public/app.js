@@ -77,6 +77,16 @@ function renderEntries(entries) {
 }
 
 
+function flattenClientInput(value) {
+  if (Array.isArray(value)) return value.flatMap(flattenClientInput);
+  if (value && typeof value === "object") {
+    for (const key of ["accounts", "items", "data"]) {
+      if (Array.isArray(value[key])) return value[key].flatMap(flattenClientInput);
+    }
+  }
+  return [value];
+}
+
 function parseCredentialText(text, name = "input") {
   const trimmed = text.trim();
   if (!trimmed) return [];
@@ -178,14 +188,31 @@ function download() {
 }
 
 function downloadEach() {
-  if (!lastRefreshResult?.canonical?.length) return log("没有可批量下载的刷新成功账号。先刷新，别下载空气。");
-  const okResults = lastRefreshResult.results.filter((r) => r.ok);
-  lastRefreshResult.canonical.forEach((item, i) => {
-    const result = okResults[i] || {};
-    const source = importedSourceNames[result.index] || item.email || item.account_id || `codex-${i + 1}`;
+  if (lastRefreshResult?.canonical?.length) {
+    const okResults = lastRefreshResult.results.filter((r) => r.ok);
+    lastRefreshResult.canonical.forEach((item, i) => {
+      const result = okResults[i] || {};
+      const source = importedSourceNames[result.index] || item.email || item.account_id || `codex-${i + 1}`;
+      clickDownload(pretty(item), `${safeFileName(source, `codex-${i + 1}`)}.json`);
+    });
+    log(`已触发 ${lastRefreshResult.canonical.length} 个刷新后单账号 JSON 下载。若浏览器拦截多文件下载，请允许此站点多文件下载。`);
+    return;
+  }
+
+  const input = $("input").value.trim();
+  if (!input) return log("没有可下载内容。先导入 JSON。");
+  let docs;
+  try {
+    docs = flattenClientInput(JSON.parse(input));
+  } catch (err) {
+    return log(`当前输入不是合法 JSON，无法批量下载：${err.message}`);
+  }
+  if (!docs.length) return log("没有可下载的单账号 JSON。");
+  docs.forEach((item, i) => {
+    const source = importedSourceNames[i] || item?.email || item?.account_id || item?.credentials?.email || `codex-${i + 1}`;
     clickDownload(pretty(item), `${safeFileName(source, `codex-${i + 1}`)}.json`);
   });
-  log(`已触发 ${lastRefreshResult.canonical.length} 个单账号 JSON 下载。若浏览器拦截多文件下载，请允许此站点多文件下载。`);
+  log(`未检测到刷新结果，已按当前导入内容触发 ${docs.length} 个单账号 JSON 下载。注意：这不是刷新后的凭证。`);
 }
 
 async function copyOutput() {
