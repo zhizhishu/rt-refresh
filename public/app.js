@@ -125,6 +125,24 @@ async function collectFingerprint() {
   log("已采集浏览器可见指纹和服务端请求头。CLI 本机信息需 CLI/本地 companion 主动提供。");
 }
 
+async function refreshCaptures() {
+  const data = await fetch("/api/captures", { cache: "no-store" }).then((r) => r.json());
+  $("capturesOutput").value = pretty(data);
+  log(`已刷新捕获列表：${data.count || 0} 条。`);
+}
+
+async function clearCaptures() {
+  const resp = await fetch("/api/captures", { method: "DELETE" }).then((r) => r.json());
+  $("capturesOutput").value = pretty(resp);
+  log("已清空服务端内存捕获。");
+}
+
+function downloadCaptures() {
+  const text = $("capturesOutput").value.trim();
+  if (!text) return log("还没有捕获 JSON。");
+  clickDownload(text, `rt-refresh-captures-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+}
+
 function safeFileName(name, fallback = "codex-auth") {
   const base = String(name || fallback).replace(/\.jsonl?$/i, "").replace(/[^a-zA-Z0-9@._-]+/g, "_").replace(/^_+|_+$/g, "");
   return (base || fallback).slice(0, 120);
@@ -500,5 +518,8 @@ $("copy").addEventListener("click", () => copyOutput().catch((e) => log(e.messag
 $("collectFingerprint").addEventListener("click", () => collectFingerprint().catch((e) => log(e.message)));
 $("copyFingerprint").addEventListener("click", () => copyFingerprint().catch((e) => log(e.message)));
 $("downloadFingerprint").addEventListener("click", downloadFingerprint);
+$("refreshCaptures").addEventListener("click", () => refreshCaptures().catch((e) => log(e.message)));
+$("clearCaptures").addEventListener("click", () => clearCaptures().catch((e) => log(e.message)));
+$("downloadCaptures").addEventListener("click", downloadCaptures);
 
 loadConfig().catch((e) => log(e.message));

@@ -8,6 +8,7 @@ ENV NODE_ENV=production \
 COPY package.json ./
 COPY src ./src
 COPY public ./public
+COPY scripts ./scripts
 COPY README.md ./README.md
 
 EXPOSE 8787

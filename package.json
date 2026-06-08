@@ -6,7 +6,8 @@
   "private": false,
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/cpa.test.js"
+    "test": "node --test test/cpa.test.js",
+    "companion": "node scripts/cli-companion.mjs"
   },
   "keywords": ["cpa", "codex", "oauth", "refresh-token"],
   "author": "zhizhishu",
