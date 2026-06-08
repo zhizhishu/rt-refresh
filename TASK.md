@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T01:35:15Z
+last_updated: 2026-06-08T01:41:37Z
 
 ## Current Goal
 
@@ -10,22 +10,25 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 - Implemented dependency-free Node.js API and static UI.
 - Supports CLIProxyAPI auth JSON, sub2api `credentials`, arrays, `accounts/items/data`, and JSONL.
+- Added multi-file import: file picker supports multiple files and drag-and-drop.
+- Added account selection controls: select all refreshable, select none, invert selection.
 - Added Dockerfile, local build compose, and GHCR image compose.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:0a1a913`
-- `latest` now supports `linux/amd64` and `linux/arm64`.
+  - `ghcr.io/zhizhishu/rt-refresh:ac43063`
+- `latest` supports `linux/amd64` and `linux/arm64`.
 
 ## Validation
 
 - `npm test` passed: 4/4 tests.
+- `node --check public/app.js` passed.
+- `node --check src/server.js` passed.
 - `docker compose config` passed.
-- `docker compose -f docker-compose.ghcr.yml config` passed.
 - GHCR image E2E refresh test passed earlier.
 - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`.
 
-## Server Retry Command
+## Server Update Command
 
 - `cd /root/rt && docker compose pull && docker compose down && docker compose up -d`
 

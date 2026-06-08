@@ -24,3 +24,7 @@ Ran GHCR image end-to-end refresh validation. Pulled `ghcr.io/zhizhishu/rt-refre
 ## 2026-06-08T01:35:15Z
 
 Rebuilt and pushed GHCR multi-arch image with `docker buildx build --platform linux/amd64,linux/arm64`. Tags: `ghcr.io/zhizhishu/rt-refresh:latest` and `ghcr.io/zhizhishu/rt-refresh:0a1a913`. Verified `docker buildx imagetools inspect` shows both `linux/amd64` and `linux/arm64`. New multi-arch digest: `sha256:a86479ebe9871ff494122045ce8bc926912412ae2ccf9d3f0a6d8237ea670279`.
+
+## 2026-06-08T01:41:37Z
+
+Added UI multi-select improvements: file input now supports multiple files, drag-and-drop imports multiple JSON/JSONL/TXT files, and account selection toolbar supports select all refreshable, select none, and invert selection. Tests passed (`npm test`, `node --check public/app.js`, `node --check src/server.js`, `docker compose config`). Pushed multi-arch GHCR image tags `latest` and `ac43063`; verified `linux/amd64` and `linux/arm64` in manifest. New digest: `sha256:e4e9c7acbd5d0e017ee8818daeac58886c0fcb95527f8640ac7cd4a3ee1bf7f3`.
