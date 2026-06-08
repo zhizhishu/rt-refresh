@@ -26,6 +26,18 @@ function sendJSON(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
+function redactedHeaders(req) {
+  const sensitive = new Set(["authorization", "cookie", "proxy-authorization", "x-api-key", "x-auth-token"]);
+  return Object.fromEntries(Object.entries(req.headers).map(([key, value]) => [
+    key,
+    sensitive.has(key.toLowerCase()) ? "[redacted]" : value,
+  ]));
+}
+
+function clientAddress(req) {
+  return req.socket?.remoteAddress || "";
+}
+
 async function readBody(req, limit = 20 * 1024 * 1024) {
   let size = 0;
   const chunks = [];
@@ -69,6 +81,20 @@ const server = http.createServer(async (req, res) => {
         client_id: OPENAI_CODEX_CLIENT_ID,
         token_url: OPENAI_TOKEN_URL,
         scope: OPENAI_REFRESH_SCOPE,
+      });
+    }
+    if (req.method === "GET" && url.pathname === "/api/fingerprint") {
+      return sendJSON(res, 200, {
+        observed_at: new Date().toISOString(),
+        remote_addr: clientAddress(req),
+        method: req.method,
+        url: url.pathname,
+        headers: redactedHeaders(req),
+        cli_header_hints: {
+          claude: ["User-Agent", "X-Stainless-Package-Version", "X-Stainless-Runtime-Version", "X-Stainless-Os", "X-Stainless-Arch"],
+          codex: ["User-Agent", "Originator", "OpenAI-Beta", "ChatGPT-Account-ID"],
+        },
+        note: "A browser request only exposes browser headers. Codex/Claude CLI headers appear here only when the CLI or a local companion calls this endpoint.",
       });
     }
     if (req.method === "POST" && url.pathname === "/api/analyze") {

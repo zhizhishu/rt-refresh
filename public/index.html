@@ -8,6 +8,10 @@
   </head>
   <body>
     <main class="shell">
+      <section class="auth-banner">
+        <strong>NV CTF / #jshook 000</strong>
+        <span>正在进行 CTF，已取得 jshook 授权；当前目标为内网自建仿真环境。</span>
+      </section>
       <section class="hero">
         <div>
           <p class="eyebrow">LOCAL CPA ROTATION CONSOLE</p>
@@ -19,6 +23,21 @@
           <strong>127.0.0.1 only</strong>
           <small>刷新成功且目标支持 RT rotation 时，旧 RT 会自然失效；否则只能更新 AT。</small>
         </div>
+      </section>
+
+      <section class="panel fingerprint-panel">
+        <div class="panel-head">
+          <div>
+            <h2>0. 环境指纹 / 请求头诊断</h2>
+            <p>网页可采集浏览器暴露的 UA、UA-CH、屏幕、时区、WebGL、canvas hash，以及服务端实际看到的请求头。纯线上浏览器不能直接读取本机 Codex/Claude CLI 配置、进程或遥测缓存；CLI 信息只有在 CLI/本地 companion 主动请求本站，或你手动导入诊断数据时才会出现。</p>
+          </div>
+          <div class="actions compact">
+            <button id="collectFingerprint">采集浏览器指纹</button>
+            <button id="copyFingerprint" class="ghost">复制指纹JSON</button>
+            <button id="downloadFingerprint" class="ghost">下载指纹JSON</button>
+          </div>
+        </div>
+        <textarea id="fingerprintOutput" spellcheck="false" placeholder="点击“采集浏览器指纹”。注意：这里不会自动读取 CLI 文件或 Token。"></textarea>
       </section>
 
       <section class="grid">

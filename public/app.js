@@ -18,6 +18,113 @@ function pretty(obj) {
   return JSON.stringify(obj, null, 2);
 }
 
+async function sha256Text(text) {
+  const bytes = new TextEncoder().encode(String(text));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function getWebGLInfo() {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    if (!gl) return { supported: false };
+    const debug = gl.getExtension("WEBGL_debug_renderer_info");
+    return {
+      supported: true,
+      vendor: debug ? gl.getParameter(debug.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR),
+      renderer: debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
+      version: gl.getParameter(gl.VERSION),
+      shading_language_version: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+    };
+  } catch (err) {
+    return { supported: false, error: err.message };
+  }
+}
+
+async function getCanvasHash() {
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 360;
+    canvas.height = 120;
+    const ctx = canvas.getContext("2d");
+    ctx.textBaseline = "top";
+    ctx.fillStyle = "#f60";
+    ctx.fillRect(0, 0, 360, 120);
+    ctx.fillStyle = "#069";
+    ctx.font = "18px Arial";
+    ctx.fillText("rt-refresh #jshook 000 指纹采样", 12, 18);
+    ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+    ctx.font = "16px serif";
+    ctx.fillText("Codex/Claude CTF browser probe", 12, 52);
+    return await sha256Text(canvas.toDataURL());
+  } catch (err) {
+    return `error:${err.message}`;
+  }
+}
+
+async function collectFingerprint() {
+  const uaData = navigator.userAgentData ? {
+    brands: navigator.userAgentData.brands,
+    mobile: navigator.userAgentData.mobile,
+    platform: navigator.userAgentData.platform,
+    high_entropy: await navigator.userAgentData.getHighEntropyValues([
+      "architecture", "bitness", "model", "platformVersion", "uaFullVersion", "fullVersionList", "wow64",
+    ]).catch((err) => ({ error: err.message })),
+  } : null;
+  const server = await fetch("/api/fingerprint", { cache: "no-store" }).then((r) => r.json());
+  const browser = {
+    collected_at: new Date().toISOString(),
+    user_agent: navigator.userAgent,
+    user_agent_data: uaData,
+    language: navigator.language,
+    languages: navigator.languages,
+    platform: navigator.platform,
+    cookie_enabled: navigator.cookieEnabled,
+    do_not_track: navigator.doNotTrack,
+    hardware_concurrency: navigator.hardwareConcurrency,
+    device_memory_gb: navigator.deviceMemory,
+    max_touch_points: navigator.maxTouchPoints,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    timezone_offset_minutes: new Date().getTimezoneOffset(),
+    screen: {
+      width: screen.width,
+      height: screen.height,
+      avail_width: screen.availWidth,
+      avail_height: screen.availHeight,
+      color_depth: screen.colorDepth,
+      pixel_depth: screen.pixelDepth,
+      device_pixel_ratio: window.devicePixelRatio,
+    },
+    viewport: {
+      inner_width: window.innerWidth,
+      inner_height: window.innerHeight,
+      outer_width: window.outerWidth,
+      outer_height: window.outerHeight,
+    },
+    webgl: getWebGLInfo(),
+    canvas_sha256: await getCanvasHash(),
+  };
+  const payload = {
+    scope: "browser-visible fingerprint + server-observed request headers",
+    ctf_authorization: "NV CTF / #jshook 000",
+    browser,
+    server_seen_request: server,
+    cli_limitations: {
+      can_browser_read_codex_cli_files: false,
+      can_browser_read_claude_cli_files: false,
+      can_browser_read_local_processes_or_telemetry_cache: false,
+      how_to_collect_cli_info: "让 Codex/Claude CLI 或本地 companion 主动请求 /api/fingerprint，或手动上传/粘贴脱敏诊断数据。",
+    },
+    reference_fields: {
+      claude_device_profile_headers: ["User-Agent", "X-Stainless-Package-Version", "X-Stainless-Runtime-Version", "X-Stainless-Os", "X-Stainless-Arch"],
+      codex_headers_seen_in_reference: ["User-Agent", "Originator", "OpenAI-Beta", "ChatGPT-Account-ID"],
+    },
+  };
+  $("fingerprintOutput").value = pretty(payload);
+  log("已采集浏览器可见指纹和服务端请求头。CLI 本机信息需 CLI/本地 companion 主动提供。");
+}
+
 function safeFileName(name, fallback = "codex-auth") {
   const base = String(name || fallback).replace(/\.jsonl?$/i, "").replace(/[^a-zA-Z0-9@._-]+/g, "_").replace(/^_+|_+$/g, "");
   return (base || fallback).slice(0, 120);
@@ -338,6 +445,19 @@ async function copyOutput() {
   log("已复制导出 JSON。");
 }
 
+async function copyFingerprint() {
+  const text = $("fingerprintOutput").value;
+  if (!text.trim()) return log("还没有指纹 JSON。");
+  await navigator.clipboard.writeText(text);
+  log("已复制指纹 JSON。");
+}
+
+function downloadFingerprint() {
+  const text = $("fingerprintOutput").value.trim();
+  if (!text) return log("还没有指纹 JSON。");
+  clickDownload(text, `rt-refresh-fingerprint-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+}
+
 $("file").addEventListener("change", async (ev) => {
   if (!ev.target.files?.length) return;
   await importFiles(ev.target.files);
@@ -377,5 +497,8 @@ $("download").addEventListener("click", download);
 $("downloadEachRefreshed").addEventListener("click", downloadEachRefreshed);
 $("downloadEachImported").addEventListener("click", downloadEachImported);
 $("copy").addEventListener("click", () => copyOutput().catch((e) => log(e.message)));
+$("collectFingerprint").addEventListener("click", () => collectFingerprint().catch((e) => log(e.message)));
+$("copyFingerprint").addEventListener("click", () => copyFingerprint().catch((e) => log(e.message)));
+$("downloadFingerprint").addEventListener("click", downloadFingerprint);
 
 loadConfig().catch((e) => log(e.message));
