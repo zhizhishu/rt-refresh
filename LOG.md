@@ -40,3 +40,7 @@ Improved refresh failure diagnostics after user observed 300/300 failures with `
 ## 2026-06-08T02:17:49Z
 
 User's refreshed diagnostic exposed upstream OAuth codes: `refresh_token_reused` and `app_session_terminated`. Updated service to suppress per-row `not_selected` skip spam by default, return a `skipped` count, and append user-facing hints for common OAuth failure codes. Tests passed (`npm test` 6/6, `node --check public/app.js`, `node --check src/cpa.js`, `docker compose config`). Pushed commit `4b2b915` and multi-arch GHCR tags `latest` and `4b2b915`; verified anonymous manifest access, amd64/arm64 manifest, and container `/api/config` smoke test. Latest digest: `sha256:e92e9a5ef48734cbb447053cb817bd0a4707932b65d55328daf48cccd6b51fa1`.
+
+## 2026-06-08T02:24:30Z
+
+Separated single-account export buttons after the UI let users download imported original JSON before a successful refresh. New UI has `下载刷新后单账号JSON` for refreshed canonical credentials only and `下载导入原始单账号JSON` for backups. Tests passed (`npm test` 6/6, `node --check public/app.js`, `node --check src/cpa.js`, `docker compose config`). Pushed commit `78af67d` and multi-arch GHCR tags `latest` and `78af67d`; verified anonymous manifest access, amd64/arm64 manifest, and container `/api/config` smoke test. Latest digest: `sha256:f7a29e0d7295191063ac0f2766e9b196d447f961a0d35e87ad78a685ad4a4a4f`.
