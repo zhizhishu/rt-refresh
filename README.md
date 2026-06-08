@@ -14,6 +14,7 @@
 
 - 支持多选/拖拽导入多个 CLIProxyAPI / sub2api / JSONL 形态的 CPA JSON。
 - 本地解析账号，显示 token 指纹，不直接展示密钥。
+- 刷新失败会显示上游 OAuth 返回的真实错误，而不是 `[object Object]`。
 - 批量刷新 RT。
 - 账号勾选支持全选可刷新、全不选、反选。
 - 默认“exclusive”导出：只保留刷新成功的凭证。

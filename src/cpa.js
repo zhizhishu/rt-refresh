@@ -10,6 +10,7 @@ const PATHS = {
   id: [["credentials", "id_token"], ["tokens", "id_token"], ["token_data", "id_token"], ["id_token"], ["idToken"]],
   expires: [["credentials", "expires_at"], ["tokens", "expires_at"], ["token_data", "expired"], ["expired"], ["expires_at"], ["expiresAt"]],
   client: [["credentials", "client_id"], ["client_id"], ["clientId"]],
+  scope: [["credentials", "scope"], ["tokens", "scope"], ["scope"]],
   email: [["credentials", "email"], ["email"], ["user", "email"]],
   account: [["credentials", "chatgpt_account_id"], ["chatgpt_account_id"], ["chatgptAccountId"], ["account_id"], ["accountId"], ["token_data", "account_id"], ["account", "id"]],
   user: [["credentials", "chatgpt_user_id"], ["chatgpt_user_id"], ["chatgptUserId"], ["user_id"], ["user", "id"]],
@@ -104,6 +105,7 @@ export function normalizeEntry(raw, index = 0) {
   const id = firstString(obj, PATHS.id);
   const expires = firstString(obj, PATHS.expires);
   const client = firstString(obj, PATHS.client);
+  const scope = firstString(obj, PATHS.scope);
   const email = firstString(obj, PATHS.email);
   const account = firstString(obj, PATHS.account);
   const user = firstString(obj, PATHS.user);
@@ -124,6 +126,7 @@ export function normalizeEntry(raw, index = 0) {
       id_token: id.value,
       expires_at: expires.value,
       client_id: client.value || OPENAI_CODEX_CLIENT_ID,
+      scope: scope.value,
       email: email.value || jwtIdentity.email,
       chatgpt_account_id: account.value || jwtIdentity.account_id,
       chatgpt_user_id: user.value || jwtIdentity.user_id,
@@ -196,7 +199,7 @@ export async function refreshToken({
     let data;
     try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
     if (!resp.ok) {
-      const msg = data?.error_description || data?.error || data?.message || text || `HTTP ${resp.status}`;
+      const msg = formatOAuthError(data, text) || `HTTP ${resp.status}`;
       const err = new Error(`刷新失败: ${resp.status} ${msg}`);
       err.status = resp.status;
       err.data = data;
@@ -206,6 +209,17 @@ export async function refreshToken({
   } finally {
     clearTimeout(timer);
   }
+}
+
+
+function formatOAuthError(data, fallbackText = "") {
+  const candidates = [data?.error_description, data?.error, data?.message, data?.raw, fallbackText];
+  for (const value of candidates) {
+    if (value == null || value === "") continue;
+    if (typeof value === "string") return value;
+    try { return JSON.stringify(value); } catch { return String(value); }
+  }
+  try { return JSON.stringify(data); } catch { return String(data || ""); }
 }
 
 export function applyRefresh(entry, tokenResp) {
@@ -300,7 +314,7 @@ export async function refreshCPA(input, options = {}) {
         refresh_token: entry.credentials.refresh_token,
         client_id: options.client_id || entry.credentials.client_id || OPENAI_CODEX_CLIENT_ID,
         token_url: options.token_url || OPENAI_TOKEN_URL,
-        scope: options.scope || OPENAI_REFRESH_SCOPE,
+        scope: options.scope || entry.credentials.scope || OPENAI_REFRESH_SCOPE,
         user_agent: options.user_agent || "codex-cli/0.91.0",
         extra_form: options.extra_form || {},
         timeout_ms: options.timeout_ms,

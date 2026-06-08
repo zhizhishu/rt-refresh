@@ -112,6 +112,11 @@ async function importFiles(fileList) {
     });
   }
   $("input").value = pretty(docs.length === 1 ? docs[0] : docs);
+  const importedScope = docs.find((doc) => typeof doc?.scope === "string" && doc.scope.trim())?.scope?.trim();
+  if (importedScope && ["", "openid profile email"].includes($("scope").value.trim())) {
+    $("scope").value = importedScope;
+    log(`已使用导入文件里的 scope: ${importedScope}`);
+  }
   log(`已导入 ${files.length} 个文件，合并为 ${docs.length} 个 JSON 文档。`);
   await analyze();
 }
