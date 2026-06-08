@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T03:02:00Z
+last_updated: 2026-06-08T04:11:30Z
 
 ## Current Goal
 
@@ -18,11 +18,12 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Split single-account exports into explicit refreshed downloads and original-import backups to prevent accidentally downloading stale credentials as refreshed output.
 - Single-account exports are packaged as ZIP files instead of triggering many separate JSON downloads.
 - Conservative refresh mode follows reference-project behavior: serial requests, configurable per-account interval, total retry attempts, exponential backoff, and no retries for `invalid_grant` / `refresh_token_reused` / session-ended style credential errors.
+- Added NV CTF / `#jshook 000` banner and a browser-visible environment fingerprint panel with server-observed request header echo. Sensitive request headers are redacted.
 - Imported file `scope` auto-fills the UI scope field when default/blank.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:4fd65a2`
+  - `ghcr.io/zhizhishu/rt-refresh:2f01baf`
 - `latest` supports `linux/amd64` and `linux/arm64`.
 
 ## Validation
@@ -32,7 +33,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - `node --check src/cpa.js` passed.
 - `docker compose config` passed.
 - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`.
-- After pulling the new image, container `/api/config` and raw RT `/api/analyze` smoke tests passed for digest `sha256:4b5509bccdb79d223ef7a49549c3df834f22878694f1ff2c3a14810621c41f0e`.
+- After pulling the new image, container `/api/config`, `/api/fingerprint`, and HTML banner smoke tests passed for digest `sha256:c91ffcf01bb0e26e49019b9687be20b7568db84a94a95303461e8dd3733d743a`.
 
 ## Server Update Command
 
