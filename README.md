@@ -6,14 +6,19 @@
 
 - `router-for-me/CLIProxyAPI`
   - Codex auth JSON 形态：`type: "codex"`、`access_token`、`refresh_token`、`id_token`、`account_id`、`email`、`expired`、`last_refresh`。
+  - Codex 在线登录复用其 PKCE OAuth 参数：`/oauth/authorize`、`client_id=app_EMoamEEZ73f0CkXaXp7hrann`、`scope=openid email profile offline_access`、`prompt=login`、`id_token_add_organizations=true`、`codex_cli_simplified_flow=true`。
 - `Wei-Shaw/sub2api`
   - Codex 导入兼容：顶层 token、`tokens.*`、`credentials.*`、数组、包装数组。
   - OpenAI/Codex RT 刷新：`POST /oauth/token`，form 字段为 `grant_type=refresh_token`、`refresh_token`、`client_id`、`scope=openid profile email`。
+  - token exchange / refresh 统一使用 `User-Agent: codex-cli/0.91.0`。
 
 ## 功能
 
 - 支持多选/拖拽导入多个 CLIProxyAPI / sub2api / JSONL 形态的 CPA JSON，也支持一行一个 `rt...` raw RT。
 - 本地解析账号，显示 token 指纹，不直接展示密钥。
+- 导入凭证明细面板：显示来源文件、email/account/user/org/plan、AT/RT/ID 摘要或 CTF 原文、AT 剩余时间。
+- 5 小时窗口面板：优先展示导入 JSON 内的 `quota_5h_*` / `rate_limit_reset_at` 等字段；没有字段时按 `last_refresh + 5h` 做本地窗口估算。
+- 在线 Codex 登录：生成 Codex PKCE 登录链接，处理 `/oauth/callback`，回调成功后可从内存列表下载 CPA JSON。
 - 刷新失败会显示上游 OAuth 返回的真实错误，而不是 `[object Object]`。
 - 批量刷新 RT，支持保守串行、请求间隔、临时错误重试和指数退避。
 - 账号勾选支持全选可刷新、全不选、反选。
@@ -24,6 +29,7 @@
 - `/api/fingerprint`：记录请求该接口的客户端 headers，适合让 Codex/Claude CLI 主动访问以获取真实 CLI UA/headers。
 - `/proxy?target=...`：诊断代理，转发请求并在内存里记录请求/响应 headers 与脱敏 body 摘要。
 - `/api/cli-report`：接收本地 companion 上传的 Codex/Claude 环境、进程、配置文件摘要/脱敏预览。
+- OAuth 登录接口：`GET /api/oauth/start`、`POST /api/oauth/exchange`、`GET /oauth/callback`、`GET /api/oauth/latest`、`GET /api/oauth/download/latest`。
 - 个人密码模式：设置 `AUTH_PASSWORD` 或 `RT_REFRESH_PASSWORD` 后，网页、API、Proxy、Companion 上传全部需要 HTTP Basic Auth。
 - CTF 原文捕获模式：设置 `CAPTURE_REDACT=false` 后，服务端捕获不再脱敏；companion 加 `--no-redact` 或 `RT_REFRESH_REDACT=false` 后上传原文报告。
 - 不持久化凭证：服务端不写入导入内容，前端只在浏览器内存保留。
@@ -227,6 +233,44 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-aut
 
 捕获记录保存在服务内存中，重启即清空。
 
+## 在线 Codex 登录 / OAuth 回调
+
+网页登录区的“生成登录链接”会创建一组内存 PKCE session，并返回授权地址。默认回调：
+
+```text
+http://你的服务地址/oauth/callback
+```
+
+接口：
+
+```text
+GET  /api/oauth/start
+POST /api/oauth/exchange
+GET  /oauth/callback
+GET  /api/oauth/latest
+GET  /api/oauth/download/latest
+GET  /api/oauth/download/:id
+```
+
+可选环境变量：
+
+- `OAUTH_AUTH_URL`：默认 `https://auth.openai.com/oauth/authorize`。
+- `OAUTH_TOKEN_URL`：默认 `https://auth.openai.com/oauth/token`。
+- `OAUTH_REDIRECT_URI`：固定回调地址；不设置时按当前请求 Host 自动拼 `/oauth/callback`。
+
+回调成功后的 CPA JSON 只保存在服务内存里，重启清空；下载接口直接返回 `attachment` JSON。
+
+## 导入凭证与 5 小时窗口
+
+“导入凭证 / 5小时窗口”面板会解析当前输入框里的 CPA JSON / JSONL / raw RT：
+
+- 凭证来源：原始文件名、账号名、email、account_id。
+- Token 展示：默认只显示长度和首尾摘要；点“显示原文凭证”后显示 AT/RT/ID 原文。
+- AT 剩余：从 `expires_at` / `expired` / `tokens.expires_at` 推算。
+- 5 小时窗口：优先读取 `quota_5h_limit`、`quota_5h_used`、`quota_5h_remaining`、`quota_5h_reset_at`、`rate_limit_reset_at`；没有这些字段时，用 `last_refresh` 到 `last_refresh + 5h` 估算。
+
+注意：本地估算不是上游实时额度查询；若 CTF 目标返回了真实 quota 字段，面板会优先显示那些字段。别把估算当圣旨，宝宝。
+
 ## 个人密码模式
 
 环境变量：
@@ -246,6 +290,8 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-aut
 - `/api/cli-report`
 - `/api/analyze`
 - `/api/refresh`
+- `/api/oauth/*`
+- `/oauth/callback`
 - `/proxy?target=...`
 
 注意：HTTP Basic Auth 只是访问控制；如果你把服务放公网，建议再套 HTTPS 反代或 SSH 隧道，否则密码会在明文 HTTP 链路上传输。

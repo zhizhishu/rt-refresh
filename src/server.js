@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { analyzeInput, refreshCPA, OPENAI_CODEX_CLIENT_ID, OPENAI_TOKEN_URL, OPENAI_REFRESH_SCOPE } from "./cpa.js";
+import { analyzeInput, refreshCPA, normalizeEntry, toCanonicalCPA, OPENAI_CODEX_CLIENT_ID, OPENAI_TOKEN_URL, OPENAI_REFRESH_SCOPE } from "./cpa.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -16,6 +16,10 @@ const authUser = process.env.AUTH_USER || process.env.RT_REFRESH_USER || "admin"
 const authPassword = process.env.AUTH_PASSWORD || process.env.RT_REFRESH_PASSWORD || "";
 const authRealm = process.env.AUTH_REALM || "rt-refresh";
 const captureRedact = !["0", "false", "no", "off", "raw"].includes(String(process.env.CAPTURE_REDACT ?? "true").toLowerCase());
+const oauthAuthURL = process.env.OAUTH_AUTH_URL || "https://auth.openai.com/oauth/authorize";
+const oauthTokenURL = process.env.OAUTH_TOKEN_URL || OPENAI_TOKEN_URL;
+const oauthSessions = new Map();
+const oauthLogins = [];
 const captures = [];
 
 const contentTypes = {
@@ -32,6 +36,27 @@ function sendJSON(res, status, data) {
     "cache-control": "no-store",
   });
   res.end(JSON.stringify(data));
+}
+
+function sendHTML(res, status, html) {
+  res.writeHead(status, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  res.end(html);
+}
+
+function sendDownloadJSON(res, filename, data) {
+  res.writeHead(200, {
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "content-disposition": `attachment; filename="${filename.replace(/"/g, "")}"`,
+  });
+  res.end(JSON.stringify(data, null, 2));
+}
+
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 function timingSafeTextEqual(a, b) {
@@ -66,6 +91,121 @@ function sendUnauthorized(res) {
     "www-authenticate": `Basic realm="${authRealm.replace(/"/g, "")}"`,
   });
   res.end(JSON.stringify({ error: "auth_required", message: "用户名或密码不正确" }));
+}
+
+function baseURLFromRequest(req) {
+  const proto = req.headers["x-forwarded-proto"] || (req.socket?.encrypted ? "https" : "http");
+  const hostHeader = req.headers["x-forwarded-host"] || req.headers.host || `127.0.0.1:${port}`;
+  return `${String(proto).split(",")[0]}://${String(hostHeader).split(",")[0]}`;
+}
+
+function base64url(buffer) {
+  return Buffer.from(buffer).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function randomURLToken(bytes = 32) {
+  return base64url(crypto.randomBytes(bytes));
+}
+
+function pkceChallenge(verifier) {
+  return base64url(crypto.createHash("sha256").update(verifier).digest());
+}
+
+function cleanupOAuthSessions() {
+  const now = Date.now();
+  for (const [state, session] of oauthSessions.entries()) {
+    if (!session || session.expires_at_ms < now) oauthSessions.delete(state);
+  }
+}
+
+function oauthRedirectURI(req, url) {
+  return url.searchParams.get("redirect_uri") || process.env.OAUTH_REDIRECT_URI || `${baseURLFromRequest(req)}/oauth/callback`;
+}
+
+function buildCodexAuthorizeURL({ state, verifier, redirect_uri, scope }) {
+  const params = new URLSearchParams({
+    client_id: OPENAI_CODEX_CLIENT_ID,
+    response_type: "code",
+    redirect_uri,
+    scope,
+    state,
+    code_challenge: pkceChallenge(verifier),
+    code_challenge_method: "S256",
+    prompt: "login",
+    id_token_add_organizations: "true",
+    codex_cli_simplified_flow: "true",
+  });
+  return `${oauthAuthURL}?${params.toString()}`;
+}
+
+async function exchangeCodexCode({ code, code_verifier, redirect_uri, client_id = OPENAI_CODEX_CLIENT_ID }) {
+  const form = new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id,
+    code,
+    redirect_uri,
+    code_verifier,
+  });
+  const resp = await fetch(oauthTokenURL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      "accept": "application/json",
+      "user-agent": "codex-cli/0.91.0",
+    },
+    body: form,
+  });
+  const text = await resp.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+  if (!resp.ok) {
+    const err = new Error(`token exchange failed: ${resp.status} ${typeof data === "object" ? JSON.stringify(data) : text}`);
+    err.status = resp.status;
+    err.data = data;
+    throw err;
+  }
+  const entry = normalizeEntry({
+    type: "codex",
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    id_token: data.id_token,
+    client_id,
+  });
+  const canonical = toCanonicalCPA(entry, data);
+  canonical.oauth_login = {
+    provider: "openai_codex",
+    redirect_uri,
+    token_url: oauthTokenURL,
+    created_at: new Date().toISOString(),
+  };
+  return { token_response: data, canonical };
+}
+
+function storeOAuthLogin({ canonical, token_response, redirect_uri }) {
+  const item = {
+    id: `${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`,
+    created_at: new Date().toISOString(),
+    provider: "openai_codex",
+    redirect_uri,
+    label: canonical.email || canonical.account_id || "codex-oauth",
+    canonical,
+    token_response,
+  };
+  oauthLogins.unshift(item);
+  if (oauthLogins.length > 50) oauthLogins.length = 50;
+  return item;
+}
+
+function oauthCallbackHTML(item) {
+  const json = escapeHTML(JSON.stringify(item.canonical, null, 2));
+  return `<!doctype html><meta charset="utf-8" /><title>Codex OAuth 登录完成</title>
+<style>body{font-family:ui-monospace,Menlo,Consolas,monospace;background:#09111f;color:#e5eefb;margin:0;padding:28px}main{max-width:980px;margin:auto}a,button{color:#7dd3fc}pre{white-space:pre-wrap;background:#0f1b2d;border:1px solid #233047;border-radius:14px;padding:18px;overflow:auto}.ok{color:#86efac}</style>
+<main>
+<h1 class="ok">Codex OAuth 登录成功</h1>
+<p>凭证已保存在当前服务内存里。回到 rt-refresh 页面点“刷新登录结果”，或直接下载。</p>
+<p><a download="codex-oauth-${item.id}.json" href="/api/oauth/download/${item.id}">下载 CPA JSON</a> · <a href="/">返回管理台</a></p>
+<pre>${json}</pre>
+</main>`;
 }
 
 function isSensitiveName(name) {
@@ -267,10 +407,96 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, {
         client_id: OPENAI_CODEX_CLIENT_ID,
         token_url: OPENAI_TOKEN_URL,
+        oauth_auth_url: oauthAuthURL,
+        oauth_token_url: oauthTokenURL,
         scope: OPENAI_REFRESH_SCOPE,
         auth_required: Boolean(authPassword),
         capture_redact: captureRedact,
       });
+    }
+    if (req.method === "GET" && url.pathname === "/api/oauth/start") {
+      cleanupOAuthSessions();
+      const state = randomURLToken(24);
+      const verifier = randomURLToken(64);
+      const redirect_uri = oauthRedirectURI(req, url);
+      const scope = url.searchParams.get("scope") || "openid email profile offline_access";
+      const expiresAtMs = Date.now() + 10 * 60 * 1000;
+      oauthSessions.set(state, {
+        state,
+        verifier,
+        redirect_uri,
+        scope,
+        created_at: new Date().toISOString(),
+        expires_at_ms: expiresAtMs,
+      });
+      const authorize_url = buildCodexAuthorizeURL({ state, verifier, redirect_uri, scope });
+      return sendJSON(res, 200, {
+        ok: true,
+        provider: "openai_codex",
+        authorize_url,
+        state,
+        redirect_uri,
+        scope,
+        expires_at: new Date(expiresAtMs).toISOString(),
+        reference: "CLIProxyAPI GenerateAuthURL: PKCE S256, prompt=login, id_token_add_organizations=true, codex_cli_simplified_flow=true",
+      });
+    }
+    if (req.method === "POST" && url.pathname === "/api/oauth/exchange") {
+      cleanupOAuthSessions();
+      const body = await readBody(req);
+      const state = String(body.state || "");
+      const code = String(body.code || "");
+      const session = state ? oauthSessions.get(state) : null;
+      if (!code) return sendJSON(res, 400, { error: "missing_code" });
+      if (!session && !body.code_verifier) return sendJSON(res, 400, { error: "missing_or_expired_state", message: "没有找到 state；重新生成登录链接，或传 code_verifier 手动交换。" });
+      if (session) oauthSessions.delete(state);
+      const redirect_uri = body.redirect_uri || session?.redirect_uri || oauthRedirectURI(req, url);
+      const code_verifier = body.code_verifier || session?.verifier;
+      try {
+        const exchanged = await exchangeCodexCode({ code, code_verifier, redirect_uri, client_id: body.client_id || OPENAI_CODEX_CLIENT_ID });
+        const item = storeOAuthLogin({ ...exchanged, redirect_uri });
+        return sendJSON(res, 200, { ok: true, id: item.id, canonical: item.canonical, token_response: item.token_response });
+      } catch (err) {
+        return sendJSON(res, err.status || 502, { error: err.message, data: err.data || null });
+      }
+    }
+    if (req.method === "GET" && url.pathname === "/oauth/callback") {
+      cleanupOAuthSessions();
+      const code = url.searchParams.get("code") || "";
+      const state = url.searchParams.get("state") || "";
+      const errParam = url.searchParams.get("error");
+      if (errParam) return sendHTML(res, 400, `<pre>OAuth error: ${escapeHTML(errParam)}\n${escapeHTML(url.searchParams.get("error_description") || "")}</pre>`);
+      const session = oauthSessions.get(state);
+      if (!code || !session) return sendHTML(res, 400, "<pre>缺少 code，或 state 已过期。请回到页面重新生成登录链接。</pre>");
+      oauthSessions.delete(state);
+      try {
+        const exchanged = await exchangeCodexCode({ code, code_verifier: session.verifier, redirect_uri: session.redirect_uri });
+        const item = storeOAuthLogin({ ...exchanged, redirect_uri: session.redirect_uri });
+        return sendHTML(res, 200, oauthCallbackHTML(item));
+      } catch (err) {
+        return sendHTML(res, err.status || 502, `<pre>${escapeHTML(err.stack || err.message)}</pre>`);
+      }
+    }
+    if (req.method === "GET" && url.pathname === "/api/oauth/latest") {
+      return sendJSON(res, 200, {
+        ok: true,
+        count: oauthLogins.length,
+        logins: oauthLogins.map((item) => ({
+          id: item.id,
+          created_at: item.created_at,
+          provider: item.provider,
+          label: item.label,
+          redirect_uri: item.redirect_uri,
+          canonical: item.canonical,
+        })),
+      });
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/api/oauth/download/")) {
+      const id = decodeURIComponent(url.pathname.replace("/api/oauth/download/", ""));
+      const item = id === "latest" ? oauthLogins[0] : oauthLogins.find((x) => x.id === id);
+      if (!item) return sendJSON(res, 404, { error: "oauth_login_not_found" });
+      const safeLabel = String(item.label || "codex-oauth").replace(/[^a-zA-Z0-9@._-]+/g, "_").slice(0, 80) || "codex-oauth";
+      return sendDownloadJSON(res, `${safeLabel}-${item.id}.json`, item.canonical);
     }
     if (req.method === "GET" && url.pathname === "/api/fingerprint") {
       const payload = {

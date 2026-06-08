@@ -5,6 +5,8 @@ let selected = new Set();
 let importedSourceNames = [];
 let lastRefreshResult = null;
 let lastDownloadObjectUrl = "";
+let lastOAuthStart = null;
+let rawCredentialsVisible = false;
 
 function updateSummary() {
   const refreshable = currentEntries.filter((e) => e.has_refresh_token).length;
@@ -275,6 +277,22 @@ async function loadConfig() {
   $("tokenUrl").value = cfg.token_url;
   $("clientId").value = cfg.client_id;
   $("scope").value = cfg.scope;
+  $("oauthOutput").value = pretty({
+    codex_oauth: {
+      auth_url: cfg.oauth_auth_url,
+      token_url: cfg.oauth_token_url,
+      client_id: cfg.client_id,
+      default_scope: "openid email profile offline_access",
+      callback: `${location.origin}/oauth/callback`,
+    },
+    api: [
+      "GET /api/oauth/start",
+      "GET /oauth/callback",
+      "POST /api/oauth/exchange",
+      "GET /api/oauth/latest",
+      "GET /api/oauth/download/latest",
+    ],
+  });
   if (cfg.capture_redact === false) log("CTF 原文捕获模式已开启：服务端不会脱敏捕获字段。");
 }
 
@@ -381,6 +399,7 @@ async function analyze() {
   const result = await api("/api/analyze", { input });
   if (importedSourceNames.length !== result.entries.length) importedSourceNames = result.entries.map((_, i) => `entry-${i + 1}.json`);
   renderEntries(result.entries);
+  renderCredentialDetails(false);
   log(`解析完成：${result.count} 条，${result.refreshable} 条包含 RT。`);
 }
 
@@ -503,6 +522,222 @@ function downloadFingerprint() {
   clickDownload(text, `rt-refresh-fingerprint-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
 }
 
+const credentialPaths = {
+  access: [["credentials", "access_token"], ["tokens", "access_token"], ["token_data", "access_token"], ["access_token"], ["accessToken"], ["token"]],
+  refresh: [["credentials", "refresh_token"], ["tokens", "refresh_token"], ["token_data", "refresh_token"], ["refresh_token"], ["refreshToken"]],
+  id: [["credentials", "id_token"], ["tokens", "id_token"], ["token_data", "id_token"], ["id_token"], ["idToken"]],
+  expires: [["credentials", "expires_at"], ["tokens", "expires_at"], ["token_data", "expired"], ["expired"], ["expires_at"], ["expiresAt"]],
+  lastRefresh: [["last_refresh"], ["lastRefresh"], ["credentials", "last_refresh"], ["tokens", "last_refresh"], ["token_data", "last_refresh"]],
+  email: [["credentials", "email"], ["email"], ["user", "email"], ["profile", "email"]],
+  account: [["credentials", "chatgpt_account_id"], ["chatgpt_account_id"], ["chatgptAccountId"], ["account_id"], ["accountId"], ["token_data", "account_id"], ["account", "id"]],
+  user: [["credentials", "chatgpt_user_id"], ["chatgpt_user_id"], ["chatgptUserId"], ["user_id"], ["user", "id"]],
+  org: [["credentials", "organization_id"], ["organization_id"], ["organizationId"], ["org_id"], ["orgId"]],
+  plan: [["credentials", "plan_type"], ["plan_type"], ["planType"], ["account", "plan_type"], ["account", "planType"]],
+  quotaLimit: [["quota_5h_limit"], ["quota5hLimit"], ["usage", "quota_5h_limit"], ["quota", "limit"]],
+  quotaUsed: [["quota_5h_used"], ["quota5hUsed"], ["usage", "quota_5h_used"], ["quota", "used"]],
+  quotaRemaining: [["quota_5h_remaining"], ["quota5hRemaining"], ["usage", "quota_5h_remaining"], ["quota", "remaining"]],
+  quotaReset: [["quota_5h_reset_at"], ["quota5hResetAt"], ["rate_limit_reset_at"], ["rateLimitResetAt"], ["usage", "quota_5h_reset_at"], ["quota", "reset_at"], ["quota", "resetAt"]],
+};
+
+function getByPath(obj, path) {
+  let cur = obj;
+  for (const key of path) {
+    if (cur == null || typeof cur !== "object" || !(key in cur)) return undefined;
+    cur = cur[key];
+  }
+  return cur;
+}
+
+function firstAny(obj, paths) {
+  for (const path of paths) {
+    const v = getByPath(obj, path);
+    if (v !== undefined && v !== null && String(v).trim() !== "") return v;
+  }
+  return "";
+}
+
+function parseJWT(token) {
+  const parts = String(token || "").split(".");
+  if (parts.length < 2) return null;
+  try {
+    const raw = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = raw + "=".repeat((4 - (raw.length % 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function tokenFingerprint(token) {
+  const text = String(token || "");
+  if (!text) return "";
+  return `${text.slice(0, 10)}…${text.slice(-8)} (${text.length})`;
+}
+
+function tokenView(token) {
+  return rawCredentialsVisible ? String(token || "") : tokenFingerprint(token);
+}
+
+function asDateMs(value) {
+  if (value === undefined || value === null || value === "") return NaN;
+  if (typeof value === "number") return value < 10_000_000_000 ? value * 1000 : value;
+  const text = String(value).trim();
+  if (/^\d+$/.test(text)) {
+    const n = Number(text);
+    return n < 10_000_000_000 ? n * 1000 : n;
+  }
+  return Date.parse(text);
+}
+
+function isoOrUnknown(ms) {
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : "unknown";
+}
+
+function formatDuration(ms) {
+  if (!Number.isFinite(ms)) return "unknown";
+  const sign = ms < 0 ? "-" : "";
+  let s = Math.abs(Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600); s -= h * 3600;
+  const m = Math.floor(s / 60); s -= m * 60;
+  return `${sign}${h}h ${m}m ${s}s`;
+}
+
+function deriveCredential(entry, index) {
+  const access = String(firstAny(entry, credentialPaths.access) || "");
+  const refresh = String(firstAny(entry, credentialPaths.refresh) || "");
+  const idToken = String(firstAny(entry, credentialPaths.id) || "");
+  const claims = parseJWT(idToken) || parseJWT(access) || {};
+  const auth = claims["https://api.openai.com/auth"] || {};
+  const email = firstAny(entry, credentialPaths.email) || claims.email || "";
+  const account = firstAny(entry, credentialPaths.account) || auth.chatgpt_account_id || "";
+  const user = firstAny(entry, credentialPaths.user) || auth.chatgpt_user_id || auth.user_id || "";
+  const org = firstAny(entry, credentialPaths.org) || auth.poid || (Array.isArray(auth.organizations) && auth.organizations[0]?.id) || "";
+  const plan = firstAny(entry, credentialPaths.plan) || auth.chatgpt_plan_type || "";
+  const label = candidateNameFromEntry(entry) || email || account || `entry-${index + 1}`;
+  const expiresAt = asDateMs(firstAny(entry, credentialPaths.expires));
+  const lastRefreshAt = asDateMs(firstAny(entry, credentialPaths.lastRefresh));
+  const quotaResetAt = asDateMs(firstAny(entry, credentialPaths.quotaReset));
+  const windowStart = Number.isFinite(lastRefreshAt) ? lastRefreshAt : Date.now();
+  const resetAt = Number.isFinite(quotaResetAt) ? quotaResetAt : windowStart + 5 * 60 * 60 * 1000;
+  const remaining = Number(firstAny(entry, credentialPaths.quotaRemaining));
+  const limit = Number(firstAny(entry, credentialPaths.quotaLimit));
+  const used = Number(firstAny(entry, credentialPaths.quotaUsed));
+  return {
+    index,
+    label,
+    source: importedSourceNames[index] || `entry-${index + 1}.json`,
+    access,
+    refresh,
+    idToken,
+    email,
+    account,
+    user,
+    org,
+    plan,
+    expiresAt,
+    atRemainingMs: Number.isFinite(expiresAt) ? expiresAt - Date.now() : NaN,
+    windowStart,
+    resetAt,
+    windowRemainingMs: resetAt - Date.now(),
+    quota: {
+      limit: Number.isFinite(limit) ? limit : null,
+      used: Number.isFinite(used) ? used : null,
+      remaining: Number.isFinite(remaining) ? remaining : null,
+      source: Number.isFinite(quotaResetAt) || Number.isFinite(limit) || Number.isFinite(used) || Number.isFinite(remaining) ? "导入字段" : "本地5小时窗口估算",
+    },
+  };
+}
+
+function quotaClass(ms) {
+  if (!Number.isFinite(ms)) return "warn";
+  if (ms <= 0) return "bad";
+  if (ms < 30 * 60 * 1000) return "warn";
+  return "ok";
+}
+
+function renderCredentialDetails(shouldLog = true) {
+  const input = $("input").value.trim();
+  const target = $("credentialDetails");
+  if (!input) {
+    target.innerHTML = `<div class="hint">还没导入凭证。宝宝，空页面不会自己长账号出来。</div>`;
+    if (shouldLog) log("没有导入内容，无法显示凭证明细。");
+    return;
+  }
+  let docs;
+  try {
+    docs = flattenClientInput(parseCredentialText(input));
+  } catch (err) {
+    target.innerHTML = `<div class="hint">解析失败：${escapeHTML(err.message)}</div>`;
+    if (shouldLog) log(`凭证明细解析失败：${err.message}`);
+    return;
+  }
+  const items = docs.map(deriveCredential);
+  target.innerHTML = items.map((item) => `
+    <article class="credential-card">
+      <header>
+        <h3>${escapeHTML(item.label)}</h3>
+        <span class="badge ${item.refresh ? "ok" : "warn"}">${item.refresh ? "RT" : "NO RT"}</span>
+      </header>
+      <div class="meta">
+        <span>source</span><code>${escapeHTML(item.source)}</code>
+        <span>email</span><code>${escapeHTML(item.email || "unknown")}</code>
+        <span>account</span><code>${escapeHTML(item.account || "unknown")}</code>
+        <span>user</span><code>${escapeHTML(item.user || "unknown")}</code>
+        <span>org</span><code>${escapeHTML(item.org || "unknown")}</code>
+        <span>plan</span><code>${escapeHTML(item.plan || "unknown")}</code>
+        <span>AT</span><code>${escapeHTML(tokenView(item.access) || "none")}</code>
+        <span>RT</span><code>${escapeHTML(tokenView(item.refresh) || "none")}</code>
+        <span>ID</span><code>${escapeHTML(tokenView(item.idToken) || "none")}</code>
+        <span>expires</span><code>${escapeHTML(isoOrUnknown(item.expiresAt))}</code>
+      </div>
+      <div class="quota-row">
+        <span class="quota-pill ${quotaClass(item.atRemainingMs)}">AT 剩余 ${escapeHTML(formatDuration(item.atRemainingMs))}</span>
+        <span class="quota-pill ${quotaClass(item.windowRemainingMs)}">5h reset ${escapeHTML(formatDuration(item.windowRemainingMs))}</span>
+        <span class="quota-pill">窗口源：${escapeHTML(item.quota.source)}</span>
+        ${item.quota.remaining != null ? `<span class="quota-pill ok">remaining ${escapeHTML(item.quota.remaining)}</span>` : ""}
+        ${item.quota.limit != null ? `<span class="quota-pill">limit ${escapeHTML(item.quota.limit)}</span>` : ""}
+        ${item.quota.used != null ? `<span class="quota-pill warn">used ${escapeHTML(item.quota.used)}</span>` : ""}
+      </div>
+    </article>
+  `).join("");
+  if (shouldLog) log(`已显示 ${items.length} 条导入凭证；5 小时额度优先读导入字段，没有字段则本地估算窗口。`);
+}
+
+function toggleRawCredentials() {
+  rawCredentialsVisible = !rawCredentialsVisible;
+  $("toggleRawCredentials").textContent = rawCredentialsVisible ? "隐藏原文凭证" : "显示原文凭证";
+  renderCredentialDetails(false);
+  log(rawCredentialsVisible ? "已显示原文凭证。CTF 模式也别把截图乱发，笨蛋。" : "已隐藏原文凭证，改回摘要显示。");
+}
+
+async function startOAuthLogin() {
+  const scope = "openid email profile offline_access";
+  const resp = await fetch(`/api/oauth/start?scope=${encodeURIComponent(scope)}`, { cache: "no-store" });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  lastOAuthStart = data;
+  $("oauthOutput").value = pretty(data);
+  log(`已生成 Codex 登录链接，回调地址：${data.redirect_uri}`);
+}
+
+function openOAuthLogin() {
+  const url = lastOAuthStart?.authorize_url;
+  if (!url) return log("还没生成登录链接。先点“生成登录链接”。");
+  window.open(url, "_blank", "noopener,noreferrer");
+  log("已打开 Codex 登录页。完成后回到这里点“刷新登录结果”。");
+}
+
+async function refreshOAuthLogins() {
+  const data = await fetch("/api/oauth/latest", { cache: "no-store" }).then((r) => r.json());
+  $("oauthOutput").value = pretty(data);
+  log(`已刷新在线登录结果：${data.count || 0} 条。`);
+}
+
+function downloadOAuthLatest() {
+  window.location.href = "/api/oauth/download/latest";
+  log("已请求下载最新 OAuth 登录 CPA JSON；如果 404，说明还没有登录成功结果。");
+}
+
 $("file").addEventListener("change", async (ev) => {
   if (!ev.target.files?.length) return;
   await importFiles(ev.target.files);
@@ -520,7 +755,7 @@ dropzone.addEventListener("drop", (ev) => importFiles(ev.dataTransfer.files).cat
 $("analyze").addEventListener("click", () => analyze().catch((e) => log(e.message)));
 $("refresh").addEventListener("click", () => refresh().catch((e) => log(e.message)));
 $("sample").addEventListener("click", sample);
-$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; currentEntries = []; selected.clear(); importedSourceNames = []; lastRefreshResult = null; updateSummary(); log("已清空。"); });
+$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; $("credentialDetails").innerHTML = ""; currentEntries = []; selected.clear(); importedSourceNames = []; lastRefreshResult = null; updateSummary(); log("已清空。"); });
 $("selectAll").addEventListener("click", () => {
   document.querySelectorAll(".pick:not(:disabled)").forEach((box) => { box.checked = true; selected.add(Number(box.dataset.index)); });
   updateSummary();
@@ -548,5 +783,11 @@ $("downloadFingerprint").addEventListener("click", downloadFingerprint);
 $("refreshCaptures").addEventListener("click", () => refreshCaptures().catch((e) => log(e.message)));
 $("clearCaptures").addEventListener("click", () => clearCaptures().catch((e) => log(e.message)));
 $("downloadCaptures").addEventListener("click", downloadCaptures);
+$("startOAuthLogin").addEventListener("click", () => startOAuthLogin().catch((e) => log(e.message)));
+$("openOAuthLogin").addEventListener("click", openOAuthLogin);
+$("refreshOAuthLogins").addEventListener("click", () => refreshOAuthLogins().catch((e) => log(e.message)));
+$("downloadOAuthLatest").addEventListener("click", downloadOAuthLatest);
+$("renderCredentialDetails").addEventListener("click", () => renderCredentialDetails(true));
+$("toggleRawCredentials").addEventListener("click", toggleRawCredentials);
 
 loadConfig().catch((e) => log(e.message));

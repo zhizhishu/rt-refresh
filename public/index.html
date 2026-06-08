@@ -60,6 +60,23 @@
         <textarea id="capturesOutput" spellcheck="false" placeholder="捕获结果会显示在这里"></textarea>
       </section>
 
+      <section class="panel oauth-panel">
+        <div class="panel-head">
+          <div>
+            <h2>0c. 在线 Codex 登录 / 回调</h2>
+            <p>按 CLIProxyAPI 的 Codex PKCE OAuth 流程生成登录链接：<code>prompt=login</code>、<code>offline_access</code>、<code>codex_cli_simplified_flow=true</code>。回调成功后可直接下载 CPA JSON。</p>
+          </div>
+          <div class="actions compact">
+            <button id="startOAuthLogin">生成登录链接</button>
+            <button id="openOAuthLogin" class="ghost">打开登录</button>
+            <button id="refreshOAuthLogins" class="ghost">刷新登录结果</button>
+            <button id="downloadOAuthLatest">下载最新登录 CPA</button>
+          </div>
+        </div>
+        <div class="hint">接口：<code>GET /api/oauth/start</code>、<code>GET /oauth/callback</code>、<code>GET /api/oauth/latest</code>、<code>GET /api/oauth/download/latest</code></div>
+        <textarea id="oauthOutput" spellcheck="false" placeholder="点击“生成登录链接”，完成网页登录后这里会显示登录结果。"></textarea>
+      </section>
+
       <section class="grid">
         <article class="panel input-panel">
           <div class="panel-head">
@@ -131,6 +148,20 @@
           <div class="actions compact"><button id="selectAll" class="ghost">全选可刷新</button><button id="selectNone" class="ghost">全不选</button><button id="invertSelection" class="ghost">反选</button></div>
         </div>
         <div id="entries" class="entries"></div>
+      </section>
+
+      <section class="panel credentials-panel">
+        <div class="panel-head">
+          <div>
+            <h2>导入凭证 / 5小时窗口</h2>
+            <p>显示当前导入 CPA 的账号、凭证、AT 到期剩余和 5 小时窗口。原文显示只在你开启 CTF 原文模式时使用。</p>
+          </div>
+          <div class="actions compact">
+            <button id="renderCredentialDetails" class="ghost">刷新凭证明细</button>
+            <button id="toggleRawCredentials" class="ghost">显示原文凭证</button>
+          </div>
+        </div>
+        <div id="credentialDetails" class="credential-grid"></div>
       </section>
 
       <section class="panel output-panel">
