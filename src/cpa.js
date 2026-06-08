@@ -22,12 +22,33 @@ export function loadInput(input) {
   if (typeof input !== "string") return input;
   const text = input.trim();
   if (!text) throw new Error("输入为空");
+  if (isRefreshTokenLine(text)) return rawRefreshTokenToAuth(text, 0);
   if (text.includes("\n") && !text.startsWith("[") && !text.startsWith("{")) {
-    return text.split(/\r?\n/).map((line, i) => {
-      try { return JSON.parse(line); } catch (err) { throw new Error(`第 ${i + 1} 行不是合法 JSON: ${err.message}`); }
+    return text.split(/\r?\n/).filter((line) => line.trim()).map((line, i) => {
+      const cleaned = cleanTokenLine(line);
+      if (isRefreshTokenLine(cleaned)) return rawRefreshTokenToAuth(cleaned, i);
+      try { return JSON.parse(line); } catch (err) { throw new Error(`第 ${i + 1} 行不是合法 JSON，也不是 rt 开头的 RT: ${err.message}`); }
     });
   }
   return JSON.parse(text);
+}
+
+function cleanTokenLine(line) {
+  return String(line || "").trim().replace(/^[`'"]+|[`'",;]+$/g, "");
+}
+
+function isRefreshTokenLine(line) {
+  const text = cleanTokenLine(line);
+  return /^rt[\w.-]{3,}$/i.test(text);
+}
+
+function rawRefreshTokenToAuth(line, index) {
+  return {
+    type: "codex",
+    refresh_token: cleanTokenLine(line),
+    label: `rt-${index + 1}`,
+    client_id: OPENAI_CODEX_CLIENT_ID,
+  };
 }
 
 export function flattenInput(value) {

@@ -65,6 +65,13 @@ test("normalize supports CLIProxyAPI codex auth shape", () => {
   assert.equal(item.credentials.chatgpt_account_id, "acc");
 });
 
+test("analyze supports pasted raw rt lines", () => {
+  const out = analyzeInput("rt_first_mock\nrt_second_mock");
+  assert.equal(out.count, 2);
+  assert.equal(out.refreshable, 2);
+  assert.equal(out.entries[0].has_refresh_token, true);
+});
+
 test("refreshCPA rotates selected entries and exports only refreshed in exclusive mode", async () => {
   await withMockTokenServer(async (tokenURL) => {
     const input = {
@@ -92,6 +99,15 @@ test("refreshCPA can export canonical CPA auth array", async () => {
     assert.equal(out.exported[0].access_token, "at_new_old-rt");
     assert.equal(out.exported[0].refresh_token, "rt_new_old-rt");
     assert.equal(out.exported[0].email, "me@example.test");
+  });
+});
+
+test("refreshCPA can refresh pasted raw rt lines", async () => {
+  await withMockTokenServer(async (tokenURL) => {
+    const out = await refreshCPA("rt_raw_one\nrt_raw_two", { token_url: tokenURL, canonical_only: true });
+    assert.equal(out.refreshed, 2);
+    assert.equal(out.exported[0].refresh_token, "rt_new_rt_raw_one");
+    assert.equal(out.exported[1].access_token, "at_new_rt_raw_two");
   });
 });
 

@@ -25,6 +25,10 @@ function safeFileName(name, fallback = "codex-auth") {
 
 function clickDownload(text, filename) {
   const blob = new Blob([text], { type: "application/json" });
+  clickDownloadBlob(blob, filename);
+}
+
+function clickDownloadBlob(blob, filename) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;
@@ -32,6 +36,80 @@ function clickDownload(text, filename) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+const crcTable = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (const b of bytes) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function dosDateTime(date = new Date()) {
+  const year = Math.max(1980, date.getFullYear());
+  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+  const day = ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+  return { time, day };
+}
+
+function u16(v) {
+  return [v & 0xff, (v >>> 8) & 0xff];
+}
+
+function u32(v) {
+  return [v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff];
+}
+
+function makeZip(files) {
+  const encoder = new TextEncoder();
+  const { time, day } = dosDateTime();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  for (const file of files) {
+    const nameBytes = encoder.encode(file.name);
+    const dataBytes = encoder.encode(file.text);
+    const crc = crc32(dataBytes);
+    const localHeader = new Uint8Array([
+      ...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(time), ...u16(day),
+      ...u32(crc), ...u32(dataBytes.length), ...u32(dataBytes.length), ...u16(nameBytes.length), ...u16(0),
+    ]);
+    const centralHeader = new Uint8Array([
+      ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(time), ...u16(day),
+      ...u32(crc), ...u32(dataBytes.length), ...u32(dataBytes.length), ...u16(nameBytes.length), ...u16(0), ...u16(0),
+      ...u16(0), ...u16(0), ...u32(0), ...u32(offset),
+    ]);
+    localParts.push(localHeader, nameBytes, dataBytes);
+    centralParts.push(centralHeader, nameBytes);
+    offset += localHeader.byteLength + nameBytes.byteLength + dataBytes.byteLength;
+  }
+  const centralSize = centralParts.reduce((sum, part) => sum + part.byteLength, 0);
+  const eocd = new Uint8Array([
+    ...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length),
+    ...u32(centralSize), ...u32(offset), ...u16(0),
+  ]);
+  return new Blob([...localParts, ...centralParts, eocd], { type: "application/zip" });
+}
+
+function downloadJsonZip(items, zipName, fallbackPrefix = "codex") {
+  const used = new Map();
+  const files = items.map((item, i) => {
+    const base = safeFileName(item.name, `${fallbackPrefix}-${i + 1}`);
+    const seen = used.get(base) || 0;
+    used.set(base, seen + 1);
+    const filename = seen ? `${base}-${seen + 1}.json` : `${base}.json`;
+    return { name: filename, text: pretty(item.value) };
+  });
+  clickDownloadBlob(makeZip(files), zipName);
 }
 
 async function api(path, payload) {
@@ -90,12 +168,32 @@ function flattenClientInput(value) {
 function parseCredentialText(text, name = "input") {
   const trimmed = text.trim();
   if (!trimmed) return [];
+  if (isRefreshTokenLine(trimmed)) return [rawRefreshTokenToAuth(trimmed, 0)];
   if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
     try { return [JSON.parse(trimmed)]; } catch (err) { throw new Error(`${name} 不是合法 JSON: ${err.message}`); }
   }
   return trimmed.split(/\r?\n/).filter(Boolean).map((line, i) => {
-    try { return JSON.parse(line); } catch (err) { throw new Error(`${name} 第 ${i + 1} 行不是合法 JSON: ${err.message}`); }
+    const cleaned = cleanTokenLine(line);
+    if (isRefreshTokenLine(cleaned)) return rawRefreshTokenToAuth(cleaned, i);
+    try { return JSON.parse(line); } catch (err) { throw new Error(`${name} 第 ${i + 1} 行不是合法 JSON，也不是 rt 开头的 RT: ${err.message}`); }
   });
+}
+
+function cleanTokenLine(line) {
+  return String(line || "").trim().replace(/^[`'"]+|[`'",;]+$/g, "");
+}
+
+function isRefreshTokenLine(line) {
+  return /^rt[\w.-]{3,}$/i.test(cleanTokenLine(line));
+}
+
+function rawRefreshTokenToAuth(line, index) {
+  return {
+    type: "codex",
+    refresh_token: cleanTokenLine(line),
+    label: `rt-${index + 1}`,
+    client_id: $("clientId").value.trim() || "app_EMoamEEZ73f0CkXaXp7hrann",
+  };
 }
 
 async function importFiles(fileList) {
@@ -197,12 +295,13 @@ function download() {
 function downloadEachRefreshed() {
   if (lastRefreshResult?.canonical?.length) {
     const okResults = lastRefreshResult.results.filter((r) => r.ok);
-    lastRefreshResult.canonical.forEach((item, i) => {
+    const items = lastRefreshResult.canonical.map((item, i) => {
       const result = okResults[i] || {};
       const source = importedSourceNames[result.index] || item.email || item.account_id || `codex-${i + 1}`;
-      clickDownload(pretty(item), `${safeFileName(source, `codex-${i + 1}`)}.json`);
+      return { name: source, value: item };
     });
-    log(`已触发 ${lastRefreshResult.canonical.length} 个刷新后单账号 JSON 下载。若浏览器拦截多文件下载，请允许此站点多文件下载。`);
+    downloadJsonZip(items, `rt-refresh-refreshed-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`, "codex");
+    log(`已打包 ${lastRefreshResult.canonical.length} 个刷新后单账号 JSON 到 ZIP。`);
     return;
   }
   if (lastRefreshResult && !lastRefreshResult.canonical?.length) {
@@ -216,16 +315,17 @@ function downloadEachImported() {
   if (!input) return log("没有可下载内容。先导入 JSON。");
   let docs;
   try {
-    docs = flattenClientInput(JSON.parse(input));
+    docs = flattenClientInput(parseCredentialText(input));
   } catch (err) {
-    return log(`当前输入不是合法 JSON，无法批量下载：${err.message}`);
+    return log(`当前输入无法批量下载：${err.message}`);
   }
   if (!docs.length) return log("没有可下载的单账号 JSON。");
-  docs.forEach((item, i) => {
+  const items = docs.map((item, i) => {
     const source = importedSourceNames[i] || item?.email || item?.account_id || item?.credentials?.email || `codex-${i + 1}`;
-    clickDownload(pretty(item), `${safeFileName(source, `codex-${i + 1}`)}.json`);
+    return { name: source, value: item };
   });
-  log(`已按当前导入内容触发 ${docs.length} 个原始单账号 JSON 下载。注意：这是旧凭证备份，不是刷新后的凭证。`);
+  downloadJsonZip(items, `rt-refresh-imported-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`, "codex");
+  log(`已打包 ${docs.length} 个原始单账号 JSON 到 ZIP。注意：这是旧凭证备份，不是刷新后的凭证。`);
 }
 
 async function copyOutput() {

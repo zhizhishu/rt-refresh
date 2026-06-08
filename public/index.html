@@ -26,7 +26,7 @@
           <div class="panel-head">
             <div>
               <h2>1. 导入 CPA JSON</h2>
-              <p>支持多文件选择/拖拽、CLIProxyAPI auth JSON、sub2api account.credentials、数组、accounts/items/data 包装、JSONL。</p>
+              <p>支持多文件选择/拖拽、CLIProxyAPI auth JSON、sub2api account.credentials、数组、accounts/items/data 包装、JSONL，也支持直接粘贴多行 rt 开头的 RT。</p>
             </div>
             <label class="file-btn">
               选文件
@@ -34,7 +34,7 @@
             </label>
           </div>
           <div id="dropzone" class="dropzone">拖拽多个 .json / .jsonl 到这里，或点击右上角“选文件”多选</div>
-          <textarea id="input" spellcheck="false" placeholder='粘贴类似 {"type":"codex","access_token":"...","refresh_token":"..."} 或数组'></textarea>
+          <textarea id="input" spellcheck="false" placeholder='粘贴 JSON / JSONL，或一行一个 rt 开头的 RT，例如：&#10;rt_xxx&#10;rt_yyy'></textarea>
           <div class="actions">
             <button id="analyze">解析</button>
             <button id="sample" class="ghost">填充样例</button>
@@ -85,11 +85,11 @@
         <div class="panel-head">
           <div>
             <h2>3. 导出 CPA JSON</h2>
-            <p>先点“刷新 RT 并生成导出”。“下载刷新后单账号JSON”只下载刷新成功的新凭证；“下载导入原始单账号JSON”只是备份旧文件。只有上游返回新 RT 时，旧 RT 才可能被服务端废弃。</p>
+            <p>先点“刷新 RT 并生成导出”。单账号导出会打包成 ZIP：刷新后 ZIP 只含成功刷新出的新凭证；原始 ZIP 只是备份旧文件。只有上游返回新 RT 时，旧 RT 才可能被服务端废弃。</p>
           </div>
           <div class="actions compact">
             <button id="copy" class="ghost">复制</button>
-            <button id="download">下载合并JSON</button><button id="downloadEachRefreshed">下载刷新后单账号JSON</button><button id="downloadEachImported" class="ghost">下载导入原始单账号JSON</button>
+            <button id="download">下载合并JSON</button><button id="downloadEachRefreshed">下载刷新后ZIP</button><button id="downloadEachImported" class="ghost">下载原始ZIP</button>
           </div>
         </div>
         <pre id="log" class="log"></pre>
