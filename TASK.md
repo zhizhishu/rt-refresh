@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T04:11:30Z
+last_updated: 2026-06-08T05:08:58Z
 
 ## Current Goal
 
@@ -19,21 +19,30 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Single-account exports are packaged as ZIP files instead of triggering many separate JSON downloads.
 - Conservative refresh mode follows reference-project behavior: serial requests, configurable per-account interval, total retry attempts, exponential backoff, and no retries for `invalid_grant` / `refresh_token_reused` / session-ended style credential errors.
 - Added NV CTF / `#jshook 000` banner and a browser-visible environment fingerprint panel with server-observed request header echo. Sensitive request headers are redacted.
+- Implemented all three CLI diagnostics:
+  - CLI/client active requests to `/api/fingerprint` are captured in memory.
+  - `/proxy?target=...` forwards requests and captures redacted request/response headers and body summaries.
+  - `scripts/cli-companion.mjs` uploads redacted Codex/Claude/OpenAI/Anthropic/Stainless/proxy environment, config-file summaries, and process command-line summaries to `/api/cli-report`.
+- Docker image now includes `scripts/cli-companion.mjs` under `/app/scripts/`.
 - Imported file `scope` auto-fills the UI scope field when default/blank.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:2f01baf`
+  - `ghcr.io/zhizhishu/rt-refresh:5f244b9`
 - `latest` supports `linux/amd64` and `linux/arm64`.
 
 ## Validation
 
 - `npm test` passed: 10/10 tests.
 - `node --check public/app.js` passed.
+- `node --check src/server.js` passed.
 - `node --check src/cpa.js` passed.
+- `node --check scripts/cli-companion.mjs` passed.
 - `docker compose config` passed.
 - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`.
-- After pulling the new image, container `/api/config`, `/api/fingerprint`, and HTML banner smoke tests passed for digest `sha256:c91ffcf01bb0e26e49019b9687be20b7568db84a94a95303461e8dd3733d743a`.
+- Local runtime smoke passed for `/api/config`, `/api/fingerprint`, `DELETE /api/captures`, `POST /api/cli-report`, and `/proxy?target=...`; Authorization/RT/body auth fields were redacted.
+- Local Docker image smoke passed for `/api/config`, HTML banner, `/api/captures`, and companion script presence.
+- After pulling the new GHCR image, container `/api/config`, `/api/fingerprint`, `/api/captures`, and `/app/scripts/cli-companion.mjs` presence smoke tests passed for digest `sha256:86fcdbf9b5cd741bdfe97e3ef9e625fb72b117d9fc3e58626c4040aaa2089806`.
 
 ## Server Update Command
 
@@ -41,4 +50,6 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Next Diagnostic
 
-- Deploy latest image and hard refresh browser. If a row reports `refresh_token_reused` or `app_session_terminated`, that RT is already unusable; use the newest JSON produced by the successful rotation or re-login to obtain a new RT.
+- Deploy latest image and hard refresh browser.
+- Use the new `0b. CLI / Proxy 捕获` panel for CLI active requests, proxy captures, and companion reports.
+- If a row reports `refresh_token_reused` or `app_session_terminated`, that RT is already unusable; use the newest JSON produced by the successful rotation or re-login to obtain a new RT.

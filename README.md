@@ -47,7 +47,7 @@ http://127.0.0.1:8787
 
 ```text
 ghcr.io/zhizhishu/rt-refresh:latest
-ghcr.io/zhizhishu/rt-refresh:<commit-short-sha>
+ghcr.io/zhizhishu/rt-refresh:5f244b9
 ```
 
 当前 `latest` 支持 `linux/amd64` 和 `linux/arm64`。
