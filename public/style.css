@@ -203,3 +203,20 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
 @media (max-width: 850px) {
   .hero, .grid { grid-template-columns: 1fr; }
 }
+
+
+.dropzone {
+  margin-top: 16px;
+  border: 1px dashed rgba(20,17,13,.34);
+  border-radius: 20px;
+  padding: 18px;
+  color: var(--muted);
+  background: rgba(255,250,240,.64);
+  text-align: center;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+.dropzone.dragover {
+  border-color: var(--red);
+  background: rgba(226,77,45,.12);
+  transform: scale(1.01);
+}

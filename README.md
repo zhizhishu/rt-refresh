@@ -12,9 +12,10 @@
 
 ## 功能
 
-- 导入 CLIProxyAPI / sub2api / JSONL 形态的 CPA JSON。
+- 支持多选/拖拽导入多个 CLIProxyAPI / sub2api / JSONL 形态的 CPA JSON。
 - 本地解析账号，显示 token 指纹，不直接展示密钥。
 - 批量刷新 RT。
+- 账号勾选支持全选可刷新、全不选、反选。
 - 默认“exclusive”导出：只保留刷新成功的凭证。
 - 支持标准 CPA auth 数组导出。
 - 不持久化凭证：服务端不写入导入内容，前端只在浏览器内存保留。

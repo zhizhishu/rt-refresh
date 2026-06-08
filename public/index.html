@@ -26,13 +26,14 @@
           <div class="panel-head">
             <div>
               <h2>1. 导入 CPA JSON</h2>
-              <p>支持 CLIProxyAPI auth JSON、sub2api account.credentials、数组、accounts/items/data 包装、JSONL。</p>
+              <p>支持多文件选择/拖拽、CLIProxyAPI auth JSON、sub2api account.credentials、数组、accounts/items/data 包装、JSONL。</p>
             </div>
             <label class="file-btn">
               选文件
-              <input id="file" type="file" accept=".json,.jsonl,.txt,application/json" />
+              <input id="file" type="file" multiple accept=".json,.jsonl,.txt,application/json" />
             </label>
           </div>
+          <div id="dropzone" class="dropzone">拖拽多个 .json / .jsonl 到这里，或点击右上角“选文件”多选</div>
           <textarea id="input" spellcheck="false" placeholder='粘贴类似 {"type":"codex","access_token":"...","refresh_token":"..."} 或数组'></textarea>
           <div class="actions">
             <button id="analyze">解析</button>
@@ -75,7 +76,7 @@
             <h2>账号概览</h2>
             <p id="summary">还没解析。别偷懒，先导入。</p>
           </div>
-          <button id="selectAll" class="ghost">全选</button>
+          <div class="actions compact"><button id="selectAll" class="ghost">全选可刷新</button><button id="selectNone" class="ghost">全不选</button><button id="invertSelection" class="ghost">反选</button></div>
         </div>
         <div id="entries" class="entries"></div>
       </section>

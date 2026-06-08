@@ -3,6 +3,11 @@ const $ = (id) => document.getElementById(id);
 let currentEntries = [];
 let selected = new Set();
 
+function updateSummary() {
+  const refreshable = currentEntries.filter((e) => e.has_refresh_token).length;
+  $("summary").textContent = `共 ${currentEntries.length} 条，${refreshable} 条可刷新，当前选中 ${selected.size} 条。`;
+}
+
 function log(line) {
   $("log").textContent = `[${new Date().toLocaleTimeString()}] ${line}\n` + $("log").textContent;
 }
@@ -32,7 +37,7 @@ async function loadConfig() {
 function renderEntries(entries) {
   currentEntries = entries;
   selected = new Set(entries.filter((e) => e.has_refresh_token).map((e) => e.index));
-  $("summary").textContent = `共 ${entries.length} 条，${selected.size} 条可刷新。`;
+  updateSummary();
   $("entries").innerHTML = entries.map((e) => `
     <label class="entry">
       <input type="checkbox" class="pick" data-index="${e.index}" ${selected.has(e.index) ? "checked" : ""} ${e.has_refresh_token ? "" : "disabled"} />
@@ -47,9 +52,34 @@ function renderEntries(entries) {
     box.addEventListener("change", () => {
       const idx = Number(box.dataset.index);
       if (box.checked) selected.add(idx); else selected.delete(idx);
-      $("summary").textContent = `共 ${currentEntries.length} 条，选中 ${selected.size} 条刷新。`;
+      updateSummary();
     });
   });
+}
+
+
+function parseCredentialText(text, name = "input") {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try { return [JSON.parse(trimmed)]; } catch (err) { throw new Error(`${name} 不是合法 JSON: ${err.message}`); }
+  }
+  return trimmed.split(/\r?\n/).filter(Boolean).map((line, i) => {
+    try { return JSON.parse(line); } catch (err) { throw new Error(`${name} 第 ${i + 1} 行不是合法 JSON: ${err.message}`); }
+  });
+}
+
+async function importFiles(fileList) {
+  const files = [...fileList].filter((file) => /\.(jsonl?|txt)$/i.test(file.name) || file.type === "application/json" || file.type === "text/plain");
+  if (!files.length) return log("没有可导入的 JSON/JSONL/TXT 文件。拖了个寂寞？");
+  const docs = [];
+  for (const file of files) {
+    const text = await file.text();
+    docs.push(...parseCredentialText(text, file.name));
+  }
+  $("input").value = pretty(docs.length === 1 ? docs[0] : docs);
+  log(`已导入 ${files.length} 个文件，合并为 ${docs.length} 个 JSON 文档。`);
+  await analyze();
 }
 
 function escapeHTML(s) {
@@ -134,19 +164,39 @@ async function copyOutput() {
 }
 
 $("file").addEventListener("change", async (ev) => {
-  const file = ev.target.files?.[0];
-  if (!file) return;
-  $("input").value = await file.text();
-  log(`已读取文件：${file.name}`);
-  await analyze();
+  if (!ev.target.files?.length) return;
+  await importFiles(ev.target.files);
+  ev.target.value = "";
 });
+
+const dropzone = $("dropzone");
+for (const eventName of ["dragenter", "dragover"]) {
+  dropzone.addEventListener(eventName, (ev) => { ev.preventDefault(); dropzone.classList.add("dragover"); });
+}
+for (const eventName of ["dragleave", "drop"]) {
+  dropzone.addEventListener(eventName, (ev) => { ev.preventDefault(); dropzone.classList.remove("dragover"); });
+}
+dropzone.addEventListener("drop", (ev) => importFiles(ev.dataTransfer.files).catch((e) => log(e.message)));
 $("analyze").addEventListener("click", () => analyze().catch((e) => log(e.message)));
 $("refresh").addEventListener("click", () => refresh().catch((e) => log(e.message)));
 $("sample").addEventListener("click", sample);
-$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; currentEntries = []; selected.clear(); log("已清空。"); });
+$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; currentEntries = []; selected.clear(); updateSummary(); log("已清空。"); });
 $("selectAll").addEventListener("click", () => {
   document.querySelectorAll(".pick:not(:disabled)").forEach((box) => { box.checked = true; selected.add(Number(box.dataset.index)); });
-  $("summary").textContent = `共 ${currentEntries.length} 条，选中 ${selected.size} 条刷新。`;
+  updateSummary();
+});
+$("selectNone").addEventListener("click", () => {
+  document.querySelectorAll(".pick").forEach((box) => { box.checked = false; });
+  selected.clear();
+  updateSummary();
+});
+$("invertSelection").addEventListener("click", () => {
+  document.querySelectorAll(".pick:not(:disabled)").forEach((box) => {
+    const idx = Number(box.dataset.index);
+    box.checked = !box.checked;
+    if (box.checked) selected.add(idx); else selected.delete(idx);
+  });
+  updateSummary();
 });
 $("download").addEventListener("click", download);
 $("copy").addEventListener("click", () => copyOutput().catch((e) => log(e.message)));
