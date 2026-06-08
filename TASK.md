@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T05:46:01Z
+last_updated: 2026-06-08T06:03:29Z
 
 ## Current Goal
 
@@ -25,12 +25,13 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - `scripts/cli-companion.mjs` uploads redacted Codex/Claude/OpenAI/Anthropic/Stainless/proxy environment, config-file summaries, and process command-line summaries to `/api/cli-report`.
 - Added personal password mode. Setting `AUTH_PASSWORD` or `RT_REFRESH_PASSWORD` enables HTTP Basic Auth for the UI, API, proxy, and companion upload. Default user is `admin`.
 - `scripts/cli-companion.mjs` supports `--basic-auth user:password` and sanitizes auth/endpoint arguments in uploaded reports.
+- Added CTF raw capture mode. Setting `CAPTURE_REDACT=false` disables server-side redaction for `/api/fingerprint`, `/api/captures`, `/api/cli-report`, and `/proxy?target=...`; companion supports `--no-redact` / `RT_REFRESH_REDACT=false` for raw reports.
 - Docker image now includes `scripts/cli-companion.mjs` under `/app/scripts/`.
 - Imported file `scope` auto-fills the UI scope field when default/blank.
 - Published repository to `https://github.com/zhizhishu/rt-refresh`.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:55495e2`
+  - `ghcr.io/zhizhishu/rt-refresh:99c8b9a`
 - `latest` supports `linux/amd64` and `linux/arm64`.
 
 ## Validation
@@ -44,8 +45,9 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`.
 - Local runtime smoke passed for `/api/config`, `/api/fingerprint`, `DELETE /api/captures`, `POST /api/cli-report`, and `/proxy?target=...`; Authorization/RT/body auth fields were redacted.
 - Password-protected runtime smoke passed: unauthenticated `/api/config` returned 401; authenticated `/api/config`, `/api/fingerprint`, `/api/cli-report`, and `/api/captures` worked.
+- Raw capture runtime smoke passed: with `CAPTURE_REDACT=false`, captured headers/body/response auth fields were returned as original strings; companion `--no-redact` upload succeeded.
 - Local Docker image smoke passed for `/api/config`, HTML banner, `/api/captures`, and companion script presence.
-- After pulling the new GHCR image, password-protected container smoke passed for unauthenticated 401 and authenticated `/api/config` plus `/api/fingerprint`. Latest digest: `sha256:0c78fe168cdaeaf44bb37924f1188783973e2f37d62a2ef0d14837d5889b155f`.
+- After pulling the new GHCR image, raw-capture container smoke passed for `CAPTURE_REDACT=false` with original header value visible. Latest digest: `sha256:6e1678ad9af3514482e60efc7eae16cf9ab80c0b2b22b1eddbd8e0b0eb3a1251`.
 
 ## Server Update Command
 
@@ -56,4 +58,5 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Deploy latest image and hard refresh browser.
 - Use the new `0b. CLI / Proxy 捕获` panel for CLI active requests, proxy captures, and companion reports.
 - For personal use, set `AUTH_USER` and `AUTH_PASSWORD` in Docker Compose before exposing the port.
+- For CTF raw capture, set `CAPTURE_REDACT=false`; for companion raw report, add `--no-redact`.
 - If a row reports `refresh_token_reused` or `app_session_terminated`, that RT is already unusable; use the newest JSON produced by the successful rotation or re-login to obtain a new RT.
