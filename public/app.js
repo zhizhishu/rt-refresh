@@ -194,7 +194,7 @@ function download() {
   clickDownload(text, `rt-refresh-merged-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
 }
 
-function downloadEach() {
+function downloadEachRefreshed() {
   if (lastRefreshResult?.canonical?.length) {
     const okResults = lastRefreshResult.results.filter((r) => r.ok);
     lastRefreshResult.canonical.forEach((item, i) => {
@@ -205,7 +205,13 @@ function downloadEach() {
     log(`已触发 ${lastRefreshResult.canonical.length} 个刷新后单账号 JSON 下载。若浏览器拦截多文件下载，请允许此站点多文件下载。`);
     return;
   }
+  if (lastRefreshResult && !lastRefreshResult.canonical?.length) {
+    return log("本轮刷新成功 0 个，没有刷新后的单账号 JSON 可下载。旧 RT 已失败就别硬装新凭证了。");
+  }
+  log("还没有刷新结果。先点“刷新 RT 并生成导出”；如果只是备份旧文件，请点“下载导入原始单账号JSON”。");
+}
 
+function downloadEachImported() {
   const input = $("input").value.trim();
   if (!input) return log("没有可下载内容。先导入 JSON。");
   let docs;
@@ -219,7 +225,7 @@ function downloadEach() {
     const source = importedSourceNames[i] || item?.email || item?.account_id || item?.credentials?.email || `codex-${i + 1}`;
     clickDownload(pretty(item), `${safeFileName(source, `codex-${i + 1}`)}.json`);
   });
-  log(`未检测到刷新结果，已按当前导入内容触发 ${docs.length} 个单账号 JSON 下载。注意：这不是刷新后的凭证。`);
+  log(`已按当前导入内容触发 ${docs.length} 个原始单账号 JSON 下载。注意：这是旧凭证备份，不是刷新后的凭证。`);
 }
 
 async function copyOutput() {
@@ -265,7 +271,8 @@ $("invertSelection").addEventListener("click", () => {
   updateSummary();
 });
 $("download").addEventListener("click", download);
-$("downloadEach").addEventListener("click", downloadEach);
+$("downloadEachRefreshed").addEventListener("click", downloadEachRefreshed);
+$("downloadEachImported").addEventListener("click", downloadEachImported);
 $("copy").addEventListener("click", () => copyOutput().catch((e) => log(e.message)));
 
 loadConfig().catch((e) => log(e.message));

@@ -85,11 +85,11 @@
         <div class="panel-head">
           <div>
             <h2>3. 导出 CPA JSON</h2>
-            <p>“合并JSON”适合备份；CPA auths 目录建议用“批量下载单账号JSON”。未刷新时下载当前导入内容；刷新后下载新凭证。只有上游返回新 RT 时，旧 RT 才可能被服务端废弃。</p>
+            <p>先点“刷新 RT 并生成导出”。“下载刷新后单账号JSON”只下载刷新成功的新凭证；“下载导入原始单账号JSON”只是备份旧文件。只有上游返回新 RT 时，旧 RT 才可能被服务端废弃。</p>
           </div>
           <div class="actions compact">
             <button id="copy" class="ghost">复制</button>
-            <button id="download">下载合并JSON</button><button id="downloadEach">批量下载单账号JSON</button>
+            <button id="download">下载合并JSON</button><button id="downloadEachRefreshed">下载刷新后单账号JSON</button><button id="downloadEachImported" class="ghost">下载导入原始单账号JSON</button>
           </div>
         </div>
         <pre id="log" class="log"></pre>
