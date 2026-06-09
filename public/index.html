@@ -223,12 +223,33 @@
         <div class="panel-head">
           <div>
             <h2>3. 导出 CPA JSON / CLIProxy 凭证</h2>
-            <p>“导出 CPA JSON（Sub2API转换）”会把导入的 Sub2API <code>credentials</code> 包装转换成 CPA/Codex auth 数组；刷新成功项优先用新 token，未刷新项也转换保留。Sub2API/原始结构只作为备份入口。</p>
+            <p>先选正确出口，别在 ZIP 迷宫里打转：Sub2API 转 CPA JSON 不需要刷新；刷新后 ZIP 才需要先点“刷新 RT”。</p>
           </div>
           <div class="actions compact">
             <button id="copy" class="ghost">复制</button>
-            <button id="exportConvertedCpaJson">导出 CPA JSON（Sub2API转换）</button><button id="exportCpaCredentials">导出 CPA 凭证ZIP</button><button id="download">下载合并JSON</button><button id="downloadEachRefreshed">下载刷新后 CLIProxy ZIP</button><button id="downloadNormalCredentials">下载正常 CLIProxy ZIP</button><button id="downloadEachImported" class="ghost">下载原始/Sub备份ZIP</button>
+            <button id="download">下载输出框JSON</button>
+            <button id="downloadEachImported" class="ghost">下载原始/Sub备份ZIP</button>
           </div>
+        </div>
+        <div class="export-workflow">
+          <article class="export-card export-card-primary">
+            <span class="step-chip">A · 无需刷新</span>
+            <h3>Sub2API → CPA JSON</h3>
+            <p>把当前导入的 <code>credentials</code> / 包装数组转换成单个 CPA/Codex auth JSON 数组。990 条也走这个，不会要求先刷新。</p>
+            <button id="exportConvertedCpaJson" class="primary inline-primary">导出 CPA JSON（无需刷新）</button>
+          </article>
+          <article class="export-card">
+            <span class="step-chip">B · 必须先刷新</span>
+            <h3>刷新后新凭证 ZIP</h3>
+            <p>只打包刷新成功并拿到新 token 的账号；没有刷新结果时点它会提示先刷新，这是正常逻辑。</p>
+            <button id="downloadEachRefreshed">下载刷新后 CLIProxy ZIP</button>
+          </article>
+          <article class="export-card">
+            <span class="step-chip">C · 筛异常</span>
+            <h3>可用凭证 ZIP</h3>
+            <p>导出可用 CPA/Codex auth ZIP，会剔除 401/402、auth_unavailable、token invalidated、需要重登和明确无额度。</p>
+            <button id="downloadNormalCredentials">下载可用凭证 ZIP</button>
+          </article>
         </div>
         <pre id="log" class="log"></pre>
         <div id="downloadFallback" class="download-fallback"></div>

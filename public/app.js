@@ -12,6 +12,9 @@ const PAGE_SIZE = 30;
 let entryPage = 1;
 let credentialPage = 1;
 let lastCredentialItems = [];
+let parsedInputCacheText = "";
+let parsedDocsCache = null;
+let credentialItemsCache = null;
 
 function updateSummary() {
   const refreshable = currentEntries.filter((e) => e.has_refresh_token).length;
@@ -25,6 +28,12 @@ function log(line) {
 
 function pretty(obj) {
   return JSON.stringify(obj, null, 2);
+}
+
+function invalidateParsedInputCache() {
+  parsedInputCacheText = "";
+  parsedDocsCache = null;
+  credentialItemsCache = null;
 }
 
 function pageInfo(total, page) {
@@ -506,6 +515,7 @@ async function importFiles(fileList) {
   const files = [...fileList].filter((file) => /\.(jsonl?|txt)$/i.test(file.name) || file.type === "application/json" || file.type === "text/plain");
   if (!files.length) return log("没有可导入的 JSON/JSONL/TXT 文件。拖了个寂寞？");
   const docs = [];
+  invalidateParsedInputCache();
   importedSourceNames = [];
   for (const file of files) {
     const text = await file.text();
@@ -520,6 +530,7 @@ async function importFiles(fileList) {
     });
   }
   $("input").value = pretty(docs.length === 1 ? docs[0] : docs);
+  invalidateParsedInputCache();
   const importedScope = docs.find((doc) => typeof doc?.scope === "string" && doc.scope.trim())?.scope?.trim();
   if (importedScope && ["", "openid profile email"].includes($("scope").value.trim())) {
     $("scope").value = importedScope;
@@ -537,7 +548,10 @@ async function analyze() {
   const input = $("input").value.trim();
   if (!input) return log("没有输入，解析空气呢？");
   const result = await api("/api/analyze", { input });
-  if (importedSourceNames.length !== result.entries.length) importedSourceNames = result.entries.map((_, i) => `entry-${i + 1}.json`);
+  if (importedSourceNames.length !== result.entries.length) {
+    importedSourceNames = result.entries.map((_, i) => `entry-${i + 1}.json`);
+    invalidateParsedInputCache();
+  }
   renderEntries(result.entries);
   renderCredentialDetails(false);
   log(`解析完成：${result.count} 条，${result.refreshable} 条包含 RT。`);
@@ -597,6 +611,7 @@ function sample() {
       }
     ]
   });
+  invalidateParsedInputCache();
   log("样例已填充，记得换成你的 CTF JSON。");
 }
 
@@ -625,7 +640,7 @@ function downloadEachRefreshed() {
   if (lastRefreshResult && !lastRefreshResult.canonical?.length) {
     return log("本轮刷新成功 0 个，没有刷新后的单账号 JSON 可下载。旧 RT 已失败就别硬装新凭证了。");
   }
-  log("还没有刷新结果。先点“刷新 RT 并生成导出”；如果只是备份旧文件，请点“下载导入原始单账号JSON”。");
+  log("还没有刷新结果：刷新后 ZIP 必须先点“刷新 RT 并生成导出”。如果你只是要 Sub2API 转 CPA JSON，请点 A 区“导出 CPA JSON（无需刷新）”。");
 }
 
 function downloadEachImported() {
@@ -839,7 +854,10 @@ function quotaClass(ms) {
 function getCredentialItemsFromInput() {
   const input = $("input").value.trim();
   if (!input) return [];
-  return flattenClientInput(parseCredentialText(input)).map(deriveCredential);
+  if (parsedInputCacheText === input && credentialItemsCache) return credentialItemsCache;
+  const docs = currentImportedDocs();
+  credentialItemsCache = docs.map(deriveCredential);
+  return credentialItemsCache;
 }
 
 function credentialStats(items) {
@@ -1126,7 +1144,11 @@ function classifyNormalCredential(entry, result = null) {
 function currentImportedDocs() {
   const input = $("input").value.trim();
   if (!input) return [];
-  return flattenClientInput(parseCredentialText(input));
+  if (parsedInputCacheText === input && parsedDocsCache) return parsedDocsCache;
+  parsedDocsCache = flattenClientInput(parseCredentialText(input));
+  parsedInputCacheText = input;
+  credentialItemsCache = null;
+  return parsedDocsCache;
 }
 
 function addIfValue(out, key, value) {
@@ -1255,7 +1277,7 @@ dropzone.addEventListener("drop", (ev) => importFiles(ev.dataTransfer.files).cat
 $("analyze").addEventListener("click", () => analyze().catch((e) => log(e.message)));
 $("refresh").addEventListener("click", () => refresh().catch((e) => log(e.message)));
 $("sample").addEventListener("click", sample);
-$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; $("credentialDetails").innerHTML = ""; currentEntries = []; selected.clear(); importedSourceNames = []; lastCredentialItems = []; entryPage = 1; credentialPage = 1; lastRefreshResult = null; updateSummary(); log("已清空。"); });
+$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; $("credentialDetails").innerHTML = ""; currentEntries = []; selected.clear(); importedSourceNames = []; lastCredentialItems = []; entryPage = 1; credentialPage = 1; lastRefreshResult = null; invalidateParsedInputCache(); updateSummary(); log("已清空。"); });
 $("selectAll").addEventListener("click", () => {
   selectItems(currentEntries, "select");
 });
@@ -1267,7 +1289,6 @@ $("invertSelection").addEventListener("click", () => {
 });
 $("download").addEventListener("click", download);
 $("exportConvertedCpaJson").addEventListener("click", exportConvertedCpaJson);
-$("exportCpaCredentials").addEventListener("click", downloadNormalCredentials);
 $("downloadEachRefreshed").addEventListener("click", downloadEachRefreshed);
 $("downloadNormalCredentials").addEventListener("click", downloadNormalCredentials);
 $("downloadEachImported").addEventListener("click", downloadEachImported);

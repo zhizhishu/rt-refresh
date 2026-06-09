@@ -132,3 +132,11 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Frontend error extraction now reads nested `error.message` before falling back to the whole object.
 - OAuth refresh error parsing now reads nested `error.code` / `error.message`; invalidated auth tokens are non-retryable and receive a re-login hint.
 - Validation: `node --check public/app.js`, `node --check src/server.js`, `node --check src/cpa.js`, `npm test` 12/12, and local HTTP smoke for the served frontend rules.
+
+## 2026-06-09T07:05:04Z - Export panel workflow redesign
+
+- Applied a frontend-design pass to separate export actions into three workflow cards: A no-refresh Sub2API→CPA JSON, B refresh-required new credential ZIP, and C usable credential ZIP with abnormal filtering.
+- Removed the misleading `导出 CPA 凭证ZIP` shortcut that pointed users back to the ZIP path when they wanted a CPA JSON file.
+- Added parsed-input / credential-item caching so 990 imported credentials are not repeatedly parsed during overview/detail/export interactions.
+- Changed the refresh-ZIP no-result log to point users to the A-section no-refresh CPA JSON export instead of an old backup button name.
+- Validation: `node --check public/app.js`, `npm test` 12/12, and local HTTP smoke for HTML/JS/CSS workflow evidence.

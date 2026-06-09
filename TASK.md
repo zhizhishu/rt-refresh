@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-09T06:52:42Z
+last_updated: 2026-06-09T07:05:04Z
 
 ## Current Goal
 
@@ -8,10 +8,11 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Done
 
+- Redesigned the export panel into three explicit workflow cards: A no-refresh Sub2API→CPA JSON, B refresh-required new credential ZIP, and C abnormal-filtered usable credential ZIP.
+- Removed the misleading `导出 CPA 凭证ZIP` shortcut and added parsed-input caching to reduce repeated parsing/rendering stalls with large imports such as 990 credentials.
 - Added `auth_unavailable` / `authentication_error` / token invalidated detection so invalidated sessions are treated as re-login/fatal and excluded from normal credential exports/remote clean results.
 - OAuth error parsing now handles nested `{error:{code,message,type}}` responses and gives an explicit re-login hint for invalidated auth tokens.
 - Added explicit single-file `导出 CPA JSON（Sub2API转换）` button that converts current Sub2API/wrapped input into CPA/Codex auth JSON array; refreshed successes use new tokens, unrefreshed rows are converted and retained.
-- Added explicit `导出 CPA 凭证ZIP` button bound to the CLIProxy/Codex normal credential ZIP export path.
 - Added 30-per-page paginated, collapsible account overview and imported credential/5h-window panels with page/global selection controls.
 - Added weekly quota display for `quota_weekly_*`, `quota_7d_*`, `weekly_quota_*`, and `weekly.*` fields without removing 5h quota display.
 - Changed refreshed/normal ZIP export paths to produce CLIProxyAPI/Codex auth JSON; original/Sub2API shape remains only in the explicit original/Sub backup ZIP.
@@ -78,9 +79,9 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Validation
 
+- UI workflow validation passed: `node --check public/app.js`, `npm test` 12/12, and local HTTP smoke confirmed workflow cards, primary no-refresh CPA JSON button, wrong-click hint, removed misleading ZIP button, and parsed-input cache.
 - Validation for invalidated-token handling: `node --check public/app.js`, `node --check src/server.js`, `node --check src/cpa.js`, `npm test` 12/12, and local HTTP smoke for auth_unavailable frontend rules.
 - Local HTTP smoke confirmed `导出 CPA JSON（Sub2API转换）` button, event binding, conversion function, and unrefreshed-row conversion branch.
-- Local HTTP smoke confirmed `导出 CPA 凭证ZIP` is present and bound to `downloadNormalCredentials`.
 - `node --check public/app.js` passed after pagination/export changes.
 - `node --check src/cpa.js` passed after canonical metadata preservation.
 - `npm test` passed: 11/11 tests, including quota metadata preservation in CLIProxy canonical export.
