@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-09T07:42:33Z
+last_updated: 2026-06-09T08:01:37Z
 
 ## Current Goal
 
@@ -80,6 +80,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Validation
 
+- Published Git commit $tag and multi-arch GHCR image ghcr.io/zhizhishu/rt-refresh:latest / :2ebe653; latest digest $digest includes linux/amd64 and linux/arm64.
 - Latest validation: `node --check public/app.js src/server.js src/cpa.js scripts/cli-companion.mjs scripts/quick-probe.mjs` passed; `npm test` passed 12/12; local HTTP smoke confirmed refresh/export labels, concurrency input, no public challenge-label wording, and `0.0.0.0` startup log.
 - UI workflow validation passed: `node --check public/app.js`, `npm test` 12/12, and local HTTP smoke confirmed workflow cards, primary no-refresh CPA JSON button, wrong-click hint, removed misleading ZIP button, and parsed-input cache.
 - Validation for invalidated-token handling: `node --check public/app.js`, `node --check src/server.js`, `node --check src/cpa.js`, `npm test` 12/12, and local HTTP smoke for auth_unavailable frontend rules.
@@ -130,7 +131,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Next Diagnostic
 
-- Deploy latest image (`0451056` / digest `sha256:fbf9842e94ef7bd3bf7bdb6693dba0b8560552c33763b68063dca6dbb802e4b3`) and hard refresh browser.
+- Deploy latest image ($tag / digest $digest) and hard refresh browser.
 - Use the new `0b. CLI / Proxy 捕获` panel for CLI active requests, proxy captures, and companion reports.
 - For personal use, set `AUTH_USER` and `AUTH_PASSWORD` in Docker Compose before exposing the port.
 - For raw capture, set `CAPTURE_REDACT=false`; for companion raw report, add `--no-redact`.

@@ -150,3 +150,10 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Replaced public challenge-label wording with neutral diagnostics wording and changed the default bind host to `0.0.0.0`.
 - Hardened frontend API parsing so HTML/non-JSON responses produce a readable `/api` routing/deployment diagnostic instead of the browser's raw JSON parse error.
 - Validation: node syntax checks passed, `npm test` passed 12/12, local HTTP smoke passed for UI labels/no public challenge text/startup log.
+
+
+## 2026-06-09T08:01:38Z
+
+- Pushed Git commit `2ebe653` to `main` and published GHCR `latest` / `:2ebe653` multi-arch image.
+- GHCR latest digest: `sha256:200e95a3440ee4544d2aba320ac72684ba614b94741136292804643006c56ab7` with linux/amd64 and linux/arm64 manifests.
+- Pulled-image/container smoke passed: refreshed CPA JSON label, conversion-only label, no public challenge text, and `0.0.0.0:8787` startup log.
