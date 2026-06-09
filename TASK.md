@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-09T08:01:37Z
+last_updated: 2026-06-09T08:50:43Z
 
 ## Current Goal
 
@@ -8,6 +8,9 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Done
 
+- Redesigned the imported credential account cards with a reference-inspired but project-owned UI: original file name first, plan badge, collapsed 5-hour and weekly quota summaries, and expanded quota meters. No promotion/sponsor/ad code from the reference repo was copied.
+- Added robust plan/quota parsing for Team/Pro/Plus/Enterprise/Free labels, `hourly_*` / `weekly_*` reset aliases, explicit quota percentages, and fractional percentage values.
+- Preserved original imported `.json` filenames in the credential-card display while keeping ZIP export filenames normalized.
 - Primary refresh now really calls `/api/refresh` and immediately downloads one refreshed CPA JSON file; ZIP paths are advanced backup only.
 - Redesigned the export panel into three explicit workflow cards: A real `刷新并导出 CPA JSON`, B `仅转换导出 CPA JSON`, and C advanced ZIP backup/filtering.
 - Removed the misleading `导出 CPA 凭证ZIP` shortcut and added parsed-input caching to reduce repeated parsing/rendering stalls with large imports such as 990 credentials.
@@ -80,6 +83,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Validation
 
+- Account quota card validation passed: `node --check public/app.js`, `node --check src/server.js`, `npm test` 12/12, and `git diff --check`. Browser Relay smoke loaded sample file `codex-2f6efc4e-312123@hegiw77632.cloud-ip.cc-team.json` and confirmed collapsed card text `套餐 Team`, `5 小时限额 41% 06/09 17:36`, `周限额 89% 06/15 19:19`, plus meter widths `41%` and `89%`.
 - Published Git commit $tag and multi-arch GHCR image ghcr.io/zhizhishu/rt-refresh:latest / :2ebe653; latest digest $digest includes linux/amd64 and linux/arm64.
 - Latest validation: `node --check public/app.js src/server.js src/cpa.js scripts/cli-companion.mjs scripts/quick-probe.mjs` passed; `npm test` passed 12/12; local HTTP smoke confirmed refresh/export labels, concurrency input, no public challenge-label wording, and `0.0.0.0` startup log.
 - UI workflow validation passed: `node --check public/app.js`, `npm test` 12/12, and local HTTP smoke confirmed workflow cards, primary no-refresh CPA JSON button, wrong-click hint, removed misleading ZIP button, and parsed-input cache.

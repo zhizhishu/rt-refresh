@@ -157,3 +157,10 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Pushed Git commit `2ebe653` to `main` and published GHCR `latest` / `:2ebe653` multi-arch image.
 - GHCR latest digest: `sha256:200e95a3440ee4544d2aba320ac72684ba614b94741136292804643006c56ab7` with linux/amd64 and linux/arm64 manifests.
 - Pulled-image/container smoke passed: refreshed CPA JSON label, conversion-only label, no public challenge text, and `0.0.0.0:8787` startup log.
+
+## 2026-06-09T08:50:43Z - Account quota card UI redesign
+
+- Used `cockpit-tools` only as an information-architecture reference for account cards, plan badges, and quota windows; no sponsor/ad/promo code or assets were copied.
+- Updated imported credential cards so collapsed state shows original `.json` file name, `套餐 <plan>`, 5-hour quota percent/reset time, and weekly quota percent/reset time; expanded state shows quota meters.
+- Added parsing support for plan/tier aliases, `hourly_*` / `weekly_*` reset aliases, explicit percent fields, and fractional percent values.
+- Validation passed: `node --check public/app.js`, `node --check src/server.js`, `npm test` 12/12, `git diff --check`, and Browser Relay sample-file smoke confirming `套餐 Team`, `5 小时限额 41% 06/09 17:36`, `周限额 89% 06/15 19:19`, meter widths `41%` / `89%`.

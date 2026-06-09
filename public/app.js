@@ -231,6 +231,11 @@ function safeFileName(name, fallback = "codex-auth") {
   return (base || fallback).slice(0, 120);
 }
 
+function safeDisplayFileName(name, fallback = "codex-auth.json") {
+  const base = String(name || fallback).replace(/[^a-zA-Z0-9@._-]+/g, "_").replace(/^_+|_+$/g, "");
+  return (base || fallback).slice(0, 140);
+}
+
 function candidateNameFromEntry(entry) {
   return entry?.name || entry?.label || entry?.email || entry?.account_id ||
     entry?.credentials?.name || entry?.credentials?.email || entry?.credentials?.account_id ||
@@ -239,9 +244,10 @@ function candidateNameFromEntry(entry) {
 
 function sourceNameForImportedEntry(fileName, entry, flatIndex = 0, flatCount = 1) {
   const fileBase = safeFileName(fileName, "codex-auth");
+  const fileDisplay = safeDisplayFileName(fileName, `${fileBase}.json`);
   const entryName = safeFileName(candidateNameFromEntry(entry), "");
-  if (flatCount <= 1) return entryName || fileBase;
-  return entryName ? `${fileBase}-${entryName}` : `${fileBase}-${flatIndex + 1}`;
+  if (flatCount <= 1) return fileDisplay || entryName || `${fileBase}.json`;
+  return entryName ? `${fileBase}-${entryName}.json` : `${fileBase}-${flatIndex + 1}.json`;
 }
 
 function clickDownload(text, filename) {
@@ -732,15 +738,17 @@ const credentialPaths = {
   account: [["credentials", "chatgpt_account_id"], ["chatgpt_account_id"], ["chatgptAccountId"], ["account_id"], ["accountId"], ["token_data", "account_id"], ["account", "id"]],
   user: [["credentials", "chatgpt_user_id"], ["chatgpt_user_id"], ["chatgptUserId"], ["user_id"], ["user", "id"]],
   org: [["credentials", "organization_id"], ["organization_id"], ["organizationId"], ["org_id"], ["orgId"]],
-  plan: [["credentials", "plan_type"], ["plan_type"], ["planType"], ["account", "plan_type"], ["account", "planType"]],
+  plan: [["credentials", "plan_type"], ["credentials", "plan"], ["credentials", "tier"], ["plan_type"], ["planType"], ["plan"], ["tier"], ["subscription", "plan"], ["subscription", "tier"], ["account", "plan_type"], ["account", "planType"], ["account", "plan"], ["account", "tier"]],
   quotaLimit: [["quota_5h_limit"], ["quota5hLimit"], ["usage", "quota_5h_limit"], ["quota", "limit"]],
   quotaUsed: [["quota_5h_used"], ["quota5hUsed"], ["usage", "quota_5h_used"], ["quota", "used"]],
   quotaRemaining: [["quota_5h_remaining"], ["quota5hRemaining"], ["usage", "quota_5h_remaining"], ["quota", "remaining"]],
-  quotaReset: [["quota_5h_reset_at"], ["quota5hResetAt"], ["rate_limit_reset_at"], ["rateLimitResetAt"], ["usage", "quota_5h_reset_at"], ["quota", "reset_at"], ["quota", "resetAt"]],
+  quotaPercent: [["quota_5h_percent"], ["quota_5h_percentage"], ["quota5hPercent"], ["quota5hPercentage"], ["hourly_percentage"], ["hourly_percent"], ["usage", "quota_5h_percent"], ["usage", "hourly_percentage"], ["hourly", "percentage"], ["hourly", "percent"], ["quota", "percentage"], ["quota", "percent"], ["quota", "hourly_percentage"], ["quota", "hourly_percent"]],
+  quotaReset: [["quota_5h_reset_at"], ["quota_5h_reset_time"], ["quota5hResetAt"], ["quota5hResetTime"], ["hourly_reset_time"], ["hourly_reset_at"], ["rate_limit_reset_at"], ["rateLimitResetAt"], ["usage", "quota_5h_reset_at"], ["usage", "quota_5h_reset_time"], ["usage", "hourly_reset_time"], ["hourly", "reset_time"], ["hourly", "reset_at"], ["hourly", "resetAt"], ["quota", "reset_at"], ["quota", "resetAt"], ["quota", "hourly_reset_time"], ["quota", "hourly_reset_at"]],
   weeklyLimit: [["quota_weekly_limit"], ["quota_7d_limit"], ["weekly_quota_limit"], ["quotaWeeklyLimit"], ["usage", "quota_weekly_limit"], ["usage", "quota_7d_limit"], ["quota", "weekly_limit"], ["quota", "weeklyLimit"], ["weekly", "limit"]],
   weeklyUsed: [["quota_weekly_used"], ["quota_7d_used"], ["weekly_quota_used"], ["quotaWeeklyUsed"], ["usage", "quota_weekly_used"], ["usage", "quota_7d_used"], ["quota", "weekly_used"], ["quota", "weeklyUsed"], ["weekly", "used"]],
   weeklyRemaining: [["quota_weekly_remaining"], ["quota_7d_remaining"], ["weekly_quota_remaining"], ["quotaWeeklyRemaining"], ["usage", "quota_weekly_remaining"], ["usage", "quota_7d_remaining"], ["quota", "weekly_remaining"], ["quota", "weeklyRemaining"], ["weekly", "remaining"]],
-  weeklyReset: [["quota_weekly_reset_at"], ["quota_7d_reset_at"], ["weekly_quota_reset_at"], ["quotaWeeklyResetAt"], ["usage", "quota_weekly_reset_at"], ["usage", "quota_7d_reset_at"], ["quota", "weekly_reset_at"], ["quota", "weeklyResetAt"], ["weekly", "reset_at"], ["weekly", "resetAt"]],
+  weeklyPercent: [["quota_weekly_percent"], ["quota_weekly_percentage"], ["quota_7d_percent"], ["quota_7d_percentage"], ["weekly_quota_percent"], ["weekly_quota_percentage"], ["quotaWeeklyPercent"], ["quotaWeeklyPercentage"], ["weekly_percentage"], ["weekly_percent"], ["usage", "quota_weekly_percent"], ["usage", "weekly_percentage"], ["quota", "weekly_percentage"], ["quota", "weekly_percent"], ["weekly", "percentage"], ["weekly", "percent"]],
+  weeklyReset: [["quota_weekly_reset_at"], ["quota_weekly_reset_time"], ["quota_7d_reset_at"], ["quota_7d_reset_time"], ["weekly_quota_reset_at"], ["weekly_quota_reset_time"], ["quotaWeeklyResetAt"], ["quotaWeeklyResetTime"], ["weekly_reset_time"], ["weekly_reset_at"], ["usage", "quota_weekly_reset_at"], ["usage", "quota_weekly_reset_time"], ["usage", "quota_7d_reset_at"], ["usage", "quota_7d_reset_time"], ["usage", "weekly_reset_time"], ["quota", "weekly_reset_at"], ["quota", "weeklyResetAt"], ["quota", "weekly_reset_time"], ["weekly", "reset_time"], ["weekly", "reset_at"], ["weekly", "resetAt"]],
   status: [["status"], ["status_code"], ["statusCode"], ["http_status"], ["httpStatus"], ["error", "status"], ["last_error", "status"]],
   code: [["code"], ["error_code"], ["errorCode"], ["error", "code"], ["last_error", "code"], ["last_error_code"]],
   error: [["error", "message"], ["error", "type"], ["error"], ["message"], ["error_message"], ["errorMessage"], ["last_error", "message"], ["last_error"], ["lastError"]],
@@ -799,6 +807,12 @@ function asDateMs(value) {
     const n = Number(text);
     return n < 10_000_000_000 ? n * 1000 : n;
   }
+  const short = text.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/);
+  if (short) {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), Number(short[1]) - 1, Number(short[2]), Number(short[3]), Number(short[4]), 0, 0);
+    return d.getTime();
+  }
   return Date.parse(text);
 }
 
@@ -813,6 +827,61 @@ function formatDuration(ms) {
   const h = Math.floor(s / 3600); s -= h * 3600;
   const m = Math.floor(s / 60); s -= m * 60;
   return `${sign}${h}h ${m}m ${s}s`;
+}
+
+function clampPercent(value) {
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function quotaDisplayPercent(explicit, remaining, limit, used) {
+  const explicitNumber = finiteNumber(explicit);
+  const explicitPercent = explicitNumber !== null && explicitNumber > 0 && explicitNumber <= 1
+    ? clampPercent(explicitNumber * 100)
+    : clampPercent(explicitNumber);
+  if (explicitPercent !== null) return explicitPercent;
+  if (limit !== null && limit > 0 && remaining !== null) return clampPercent((remaining / limit) * 100);
+  if (limit !== null && limit > 0 && used !== null) return clampPercent(100 - (used / limit) * 100);
+  return null;
+}
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function formatShortDate(ms) {
+  if (!Number.isFinite(ms)) return "未提供";
+  const d = new Date(ms);
+  return `${pad2(d.getMonth() + 1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+function planLabel(plan) {
+  const raw = String(plan || "").trim();
+  if (!raw) return "Unknown";
+  const normalized = raw.toLowerCase().replace(/^chatgpt[_ -]?/, "").replace(/[_-]?plan$/, "");
+  if (normalized.includes("team")) return "Team";
+  if (normalized.includes("enterprise")) return "Enterprise";
+  if (normalized.includes("pro")) return "Pro";
+  if (normalized.includes("plus")) return "Plus";
+  if (normalized.includes("free")) return "Free";
+  return raw.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function planClass(plan) {
+  const normalized = String(plan || "").toLowerCase();
+  if (normalized.includes("team")) return "team";
+  if (normalized.includes("enterprise")) return "enterprise";
+  if (normalized.includes("pro")) return "pro";
+  if (normalized.includes("plus")) return "plus";
+  if (normalized.includes("free")) return "free";
+  return "unknown";
+}
+
+function quotaTone(percent) {
+  if (percent === null) return "unknown";
+  if (percent >= 70) return "high";
+  if (percent >= 35) return "medium";
+  return "low";
 }
 
 function deriveCredential(entry, index) {
@@ -840,11 +909,13 @@ function deriveCredential(entry, index) {
   const remaining = finiteNumber(firstAny(entry, credentialPaths.quotaRemaining));
   const limit = finiteNumber(firstAny(entry, credentialPaths.quotaLimit));
   const used = finiteNumber(firstAny(entry, credentialPaths.quotaUsed));
+  const percent = quotaDisplayPercent(firstAny(entry, credentialPaths.quotaPercent), remaining, limit, used);
   const weeklyRemaining = finiteNumber(firstAny(entry, credentialPaths.weeklyRemaining));
   const weeklyLimit = finiteNumber(firstAny(entry, credentialPaths.weeklyLimit));
   const weeklyUsed = finiteNumber(firstAny(entry, credentialPaths.weeklyUsed));
-  const quotaHasAny = Number.isFinite(quotaResetAt) || limit !== null || used !== null || remaining !== null;
-  const weeklyHasAny = Number.isFinite(weeklyResetAt) || weeklyLimit !== null || weeklyUsed !== null || weeklyRemaining !== null;
+  const weeklyPercent = quotaDisplayPercent(firstAny(entry, credentialPaths.weeklyPercent), weeklyRemaining, weeklyLimit, weeklyUsed);
+  const quotaHasAny = Number.isFinite(quotaResetAt) || limit !== null || used !== null || remaining !== null || percent !== null;
+  const weeklyHasAny = Number.isFinite(weeklyResetAt) || weeklyLimit !== null || weeklyUsed !== null || weeklyRemaining !== null || weeklyPercent !== null;
   return {
     index,
     label,
@@ -868,7 +939,9 @@ function deriveCredential(entry, index) {
       limit,
       used,
       remaining,
+      percent,
       resetAt: Number.isFinite(quotaResetAt) ? quotaResetAt : null,
+      displayResetAt: resetAt,
       hasAny: quotaHasAny,
       source: quotaHasAny ? "导入字段" : "本地5小时窗口估算",
     },
@@ -876,7 +949,9 @@ function deriveCredential(entry, index) {
       limit: weeklyLimit,
       used: weeklyUsed,
       remaining: weeklyRemaining,
+      percent: weeklyPercent,
       resetAt: Number.isFinite(weeklyResetAt) ? weeklyResetAt : null,
+      displayResetAt: Number.isFinite(weeklyResetAt) ? weeklyResetAt : null,
       hasAny: weeklyHasAny,
       source: weeklyHasAny ? "导入字段" : "未提供",
     },
@@ -917,26 +992,66 @@ function credentialStats(items) {
     </div>`;
 }
 
+function renderQuotaMeter(quota, label, fallbackResetAt = null) {
+  const percent = quota.percent;
+  const tone = quotaTone(percent);
+  const resetAt = quota.displayResetAt ?? quota.resetAt ?? fallbackResetAt;
+  const percentText = percent === null ? "--%" : `${percent}%`;
+  return `
+    <div class="quota-meter ${tone}">
+      <div class="quota-meter-head">
+        <span>${escapeHTML(label)}</span>
+        <strong>${escapeHTML(percentText)}</strong>
+      </div>
+      <div class="quota-track" aria-label="${escapeHTML(label)} ${escapeHTML(percentText)}">
+        <i style="width:${percent === null ? 0 : percent}%"></i>
+      </div>
+      <div class="quota-meter-foot">
+        <span>${escapeHTML(formatShortDate(resetAt))}</span>
+        <span>${escapeHTML(quota.source)}</span>
+      </div>
+    </div>`;
+}
+
+function renderSummaryQuota(quota, label) {
+  const percentText = quota.percent === null ? "--%" : `${quota.percent}%`;
+  const resetText = formatShortDate(quota.displayResetAt ?? quota.resetAt);
+  return `<span class="summary-quota-line"><span>${escapeHTML(label)}</span><b>${escapeHTML(percentText)}</b><em>${escapeHTML(resetText)}</em></span>`;
+}
+
 function renderCredentialCard(item) {
   const canRefresh = Boolean(item.refresh);
+  const displayPlan = planLabel(item.plan);
+  const displayPlanClass = planClass(displayPlan);
+  const primaryName = item.source || item.label || item.email || "unknown";
+  const secondaryName = item.label && item.label !== primaryName ? item.label : (item.email || item.account || "unknown");
   return `
-    <details class="credential-card">
+    <details class="credential-card quota-account-card">
       <summary>
         <input type="checkbox" class="credential-pick" data-index="${item.index}" ${selected.has(item.index) ? "checked" : ""} ${canRefresh ? "" : "disabled"} />
         <span class="entry-title">
-          <b>${escapeHTML(item.label)}</b>
-          <small>${escapeHTML(item.email || item.source || "unknown")}</small>
+          <b>${escapeHTML(primaryName)}</b>
+          <small>${escapeHTML(secondaryName)}</small>
+          <small>${escapeHTML(item.email || item.account || "unknown")}</small>
+        </span>
+        <span class="tier-badge ${escapeHTML(displayPlanClass)}">套餐 ${escapeHTML(displayPlan)}</span>
+        <span class="summary-quota">
+          ${renderSummaryQuota(item.quota, "5 小时限额")}
+          ${renderSummaryQuota(item.weekly, "周限额")}
         </span>
         <span class="badge ${canRefresh ? "ok" : "warn"}">${canRefresh ? "RT" : "NO RT"}</span>
-        ${item.weekly.hasAny ? `<span class="badge">周限额</span>` : ""}
       </summary>
+      <div class="quota-meter-grid">
+        ${renderQuotaMeter(item.quota, "5 小时限额", item.resetAt)}
+        ${renderQuotaMeter(item.weekly, "周限额")}
+      </div>
       <div class="meta">
         <span>source</span><code>${escapeHTML(item.source)}</code>
         <span>email</span><code>${escapeHTML(item.email || "unknown")}</code>
         <span>account</span><code>${escapeHTML(item.account || "unknown")}</code>
         <span>user</span><code>${escapeHTML(item.user || "unknown")}</code>
         <span>org</span><code>${escapeHTML(item.org || "unknown")}</code>
-        <span>plan</span><code>${escapeHTML(item.plan || "unknown")}</code>
+        <span>plan</span><code>${escapeHTML(displayPlan)}</code>
         <span>AT</span><code>${escapeHTML(tokenView(item.access) || "none")}</code>
         <span>RT</span><code>${escapeHTML(tokenView(item.refresh) || "none")}</code>
         <span>ID</span><code>${escapeHTML(tokenView(item.idToken) || "none")}</code>
@@ -945,6 +1060,7 @@ function renderCredentialCard(item) {
       <div class="quota-row">
         <span class="quota-pill ${quotaClass(item.atRemainingMs)}">AT 剩余 ${escapeHTML(formatDuration(item.atRemainingMs))}</span>
         <span class="quota-pill ${quotaClass(item.windowRemainingMs)}">5h reset ${escapeHTML(formatDuration(item.windowRemainingMs))}</span>
+        <span class="quota-pill">5h 重置 ${escapeHTML(formatShortDate(item.quota.displayResetAt))}</span>
         <span class="quota-pill">窗口源：${escapeHTML(item.quota.source)}</span>
         ${item.quota.remaining != null ? `<span class="quota-pill ok">remaining ${escapeHTML(item.quota.remaining)}</span>` : ""}
         ${item.quota.limit != null ? `<span class="quota-pill">limit ${escapeHTML(item.quota.limit)}</span>` : ""}
@@ -952,7 +1068,7 @@ function renderCredentialCard(item) {
       </div>
       <div class="quota-row weekly-row">
         <span class="quota-pill">周限额源：${escapeHTML(item.weekly.source)}</span>
-        ${item.weekly.resetAt != null ? `<span class="quota-pill ${quotaClass(item.weekly.resetAt - Date.now())}">week reset ${escapeHTML(formatDuration(item.weekly.resetAt - Date.now()))}</span>` : ""}
+        ${item.weekly.displayResetAt != null ? `<span class="quota-pill ${quotaClass(item.weekly.displayResetAt - Date.now())}">周重置 ${escapeHTML(formatShortDate(item.weekly.displayResetAt))}</span>` : ""}
         ${item.weekly.remaining != null ? `<span class="quota-pill ${item.weekly.remaining > 0 ? "ok" : "bad"}">week remaining ${escapeHTML(item.weekly.remaining)}</span>` : ""}
         ${item.weekly.limit != null ? `<span class="quota-pill">week limit ${escapeHTML(item.weekly.limit)}</span>` : ""}
         ${item.weekly.used != null ? `<span class="quota-pill warn">week used ${escapeHTML(item.weekly.used)}</span>` : ""}

@@ -362,6 +362,25 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
   padding: 14px;
 }
 
+.quota-account-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(216, 166, 50, .18), transparent 14rem),
+    linear-gradient(180deg, #fffaf0 0%, #f7ecd4 100%);
+  box-shadow: 0 18px 44px rgba(20, 17, 13, .12);
+}
+
+.quota-account-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--green), var(--gold), var(--red));
+  opacity: .78;
+}
+
 .credential-card header {
   display: flex;
   justify-content: space-between;
@@ -394,6 +413,128 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
 .quota-pill.warn { color: #9a6700; }
 .quota-pill.bad { color: var(--red); }
 
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 6px 0 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 17, 13, .14);
+  background: rgba(20, 17, 13, .06);
+  color: var(--ink);
+  font: 800 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: nowrap;
+}
+.tier-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px rgba(216, 166, 50, .16);
+}
+.tier-badge.team { background: rgba(77, 166, 106, .14); color: #176b37; }
+.tier-badge.team::before { background: var(--green); box-shadow: 0 0 0 3px rgba(77,166,106,.16); }
+.tier-badge.pro, .tier-badge.plus { background: rgba(216, 166, 50, .16); color: #7a5300; }
+.tier-badge.enterprise { background: rgba(20, 17, 13, .12); color: var(--ink); }
+.tier-badge.free, .tier-badge.unknown { background: rgba(130, 121, 108, .12); color: var(--muted); }
+.tier-badge.free::before, .tier-badge.unknown::before { background: var(--muted); box-shadow: 0 0 0 3px rgba(130,121,108,.14); }
+
+.summary-quota {
+  display: grid;
+  gap: 5px;
+  min-width: 168px;
+  margin-top: 1px;
+}
+
+.summary-quota-line {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 4px 8px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(20,17,13,.1);
+  background: rgba(255,250,240,.62);
+  color: var(--muted);
+  font: 11px/1.1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.summary-quota-line b {
+  color: var(--ink);
+  font-size: 14px;
+  letter-spacing: -.04em;
+}
+
+.summary-quota-line em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.quota-meter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 12px;
+}
+
+.quota-meter {
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(20, 17, 13, .12);
+  background:
+    linear-gradient(180deg, rgba(255,250,240,.86), rgba(255,250,240,.56)),
+    repeating-linear-gradient(135deg, rgba(20,17,13,.04) 0 1px, transparent 1px 9px);
+}
+
+.quota-meter-head,
+.quota-meter-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.quota-meter-head span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.quota-meter-head strong {
+  font: 900 24px/.85 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: -.07em;
+}
+
+.quota-meter-foot {
+  margin-top: 7px;
+  color: var(--muted);
+  font: 11px/1.25 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.quota-track {
+  height: 9px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(20,17,13,.12);
+  box-shadow: inset 0 1px 2px rgba(20,17,13,.12);
+}
+
+.quota-track i {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  background: var(--green);
+  box-shadow: 0 0 16px rgba(77,166,106,.35);
+}
+
+.quota-meter.medium .quota-track i { background: var(--gold); box-shadow: 0 0 16px rgba(216,166,50,.35); }
+.quota-meter.low .quota-track i { background: var(--red); box-shadow: 0 0 16px rgba(226,77,45,.35); }
+.quota-meter.unknown .quota-track i { background: var(--muted); box-shadow: none; }
+
 .log {
   min-height: 88px;
   max-height: 220px;
@@ -413,6 +554,7 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
 
 @media (max-width: 850px) {
   .hero, .grid, .export-workflow { grid-template-columns: 1fr; }
+  .quota-meter-grid { grid-template-columns: 1fr; }
   .export-card p { min-height: 0; }
 }
 
