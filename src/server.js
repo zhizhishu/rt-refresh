@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const publicDir = path.join(root, "public");
 const port = Number(process.env.PORT || 8787);
-const host = process.env.HOST || "127.0.0.1";
+const host = process.env.HOST || "0.0.0.0";
 const captureLimit = Number(process.env.CAPTURE_LIMIT || 500);
 const proxyTargetBase = process.env.PROXY_TARGET_BASE || "";
 const authUser = process.env.AUTH_USER || process.env.RT_REFRESH_USER || "admin";
@@ -95,7 +95,7 @@ function sendUnauthorized(res) {
 
 function baseURLFromRequest(req) {
   const proto = req.headers["x-forwarded-proto"] || (req.socket?.encrypted ? "https" : "http");
-  const hostHeader = req.headers["x-forwarded-host"] || req.headers.host || `127.0.0.1:${port}`;
+  const hostHeader = req.headers["x-forwarded-host"] || req.headers.host || `localhost:${port}`;
   return `${String(proto).split(",")[0]}://${String(hostHeader).split(",")[0]}`;
 }
 
@@ -783,9 +783,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, host, () => {
-  const shownHost = host === "0.0.0.0" ? "127.0.0.1" : host;
-  console.log(`rt-refresh UI: http://${shownHost}:${port}`);
+  console.log(`rt-refresh UI listening on ${host}:${port}`);
   console.log(authPassword ? `Password protection enabled for user "${authUser}".` : "Password protection disabled: set AUTH_PASSWORD or RT_REFRESH_PASSWORD to enable it.");
-  console.log(captureRedact ? "Capture redaction enabled. Set CAPTURE_REDACT=false for raw CTF captures." : "Capture redaction disabled: raw capture mode is enabled.");
+  console.log(captureRedact ? "Capture redaction enabled. Set CAPTURE_REDACT=false for raw captures." : "Capture redaction disabled: raw capture mode is enabled.");
   console.log("No credential persistence: imported CPA JSON stays in browser memory unless you export it.");
 });

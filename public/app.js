@@ -136,10 +136,10 @@ async function getCanvasHash() {
     ctx.fillRect(0, 0, 360, 120);
     ctx.fillStyle = "#069";
     ctx.font = "18px Arial";
-    ctx.fillText("rt-refresh #jshook 000 指纹采样", 12, 18);
+    ctx.fillText("rt-refresh browser fingerprint", 12, 18);
     ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
     ctx.font = "16px serif";
-    ctx.fillText("Codex/Claude CTF browser probe", 12, 52);
+    ctx.fillText("Codex/Claude browser diagnostics", 12, 52);
     return await sha256Text(canvas.toDataURL());
   } catch (err) {
     return `error:${err.message}`;
@@ -155,7 +155,7 @@ async function collectFingerprint() {
       "architecture", "bitness", "model", "platformVersion", "uaFullVersion", "fullVersionList", "wow64",
     ]).catch((err) => ({ error: err.message })),
   } : null;
-  const server = await fetch("/api/fingerprint", { cache: "no-store" }).then((r) => r.json());
+  const server = await fetchJSON("/api/fingerprint", { cache: "no-store" });
   const browser = {
     collected_at: new Date().toISOString(),
     user_agent: navigator.userAgent,
@@ -190,7 +190,7 @@ async function collectFingerprint() {
   };
   const payload = {
     scope: "browser-visible fingerprint + server-observed request headers",
-    ctf_authorization: "NV CTF / #jshook 000",
+    diagnostic_context: "browser-visible diagnostics",
     browser,
     server_seen_request: server,
     cli_limitations: {
@@ -209,13 +209,13 @@ async function collectFingerprint() {
 }
 
 async function refreshCaptures() {
-  const data = await fetch("/api/captures", { cache: "no-store" }).then((r) => r.json());
+  const data = await fetchJSON("/api/captures", { cache: "no-store" });
   $("capturesOutput").value = pretty(data);
   log(`已刷新捕获列表：${data.count || 0} 条。`);
 }
 
 async function clearCaptures() {
-  const resp = await fetch("/api/captures", { method: "DELETE" }).then((r) => r.json());
+  const resp = await fetchJSON("/api/captures", { method: "DELETE" });
   $("capturesOutput").value = pretty(resp);
   log("已清空服务端内存捕获。");
 }
@@ -341,19 +341,41 @@ function downloadJsonZip(items, zipName, fallbackPrefix = "codex") {
   return files.length;
 }
 
-async function api(path, payload) {
-  const resp = await fetch(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = await resp.json();
-  if (!resp.ok && !data.results) throw new Error(data.error || `HTTP ${resp.status}`);
+async function readJSONResponse(resp, path) {
+  const text = await resp.text();
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    const preview = text.trim().replace(/\s+/g, " ").slice(0, 120) || "<empty>";
+    const htmlHint = /^<!doctype|^<html|^</i.test(text.trim())
+      ? "通常是旧部署/反代/鉴权页把 /api 路由回了 HTML 页面；请重新部署后硬刷新。"
+      : "服务端返回的不是 JSON。";
+    throw new Error(`API ${path} 返回 HTML/非 JSON（HTTP ${resp.status}）：${htmlHint} 预览：${preview}`);
+  }
   return data;
 }
 
+async function fetchJSON(path, init = {}, { allowResultsOnError = false } = {}) {
+  const resp = await fetch(path, init);
+  const data = await readJSONResponse(resp, path);
+  if (!resp.ok && !(allowResultsOnError && data.results)) {
+    const message = data.error?.message || data.error || data.message || `HTTP ${resp.status}`;
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+  return data;
+}
+
+async function api(path, payload) {
+  return fetchJSON(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  }, { allowResultsOnError: true });
+}
+
 async function loadConfig() {
-  const cfg = await fetch("/api/config").then((r) => r.json());
+  const cfg = await fetchJSON("/api/config");
   $("tokenUrl").value = cfg.token_url;
   $("clientId").value = cfg.client_id;
   $("scope").value = cfg.scope;
@@ -373,7 +395,7 @@ async function loadConfig() {
       "GET /api/oauth/download/latest",
     ],
   });
-  if (cfg.capture_redact === false) log("CTF 原文捕获模式已开启：服务端不会脱敏捕获字段。");
+  if (cfg.capture_redact === false) log("原文捕获模式已开启：服务端不会脱敏捕获字段。");
 }
 
 function renderEntries(entries) {
@@ -557,13 +579,23 @@ async function analyze() {
   log(`解析完成：${result.count} 条，${result.refreshable} 条包含 RT。`);
 }
 
-async function refresh() {
+function refreshActionButtons() {
+  return ["refresh", "refreshAndExportCpaJson"].map((id) => $(id)).filter(Boolean);
+}
+
+function setRefreshBusy(busy) {
+  for (const button of refreshActionButtons()) {
+    button.disabled = busy;
+    button.textContent = busy ? "刷新中..." : "刷新并导出 CPA JSON";
+  }
+}
+
+async function refreshAndExportCpaJson() {
   const input = $("input").value.trim();
   if (!input) return log("没有 CPA JSON，刷新个寂寞。");
   if (!currentEntries.length) await analyze();
   if (!selected.size) return log("没有选中可刷新条目。");
-  $("refresh").disabled = true;
-  $("refresh").textContent = "刷新中...";
+  setRefreshBusy(true);
   try {
     const result = await api("/api/refresh", {
       input,
@@ -574,14 +606,17 @@ async function refresh() {
         user_agent: $("ua").value.trim(),
         request_interval_ms: Number($("requestInterval").value || 0),
         retry_attempts: Number($("retryAttempts").value || 1),
-        retry_backoff_ms: Number($("retryBackoff").value || 1000),
-        exclusive: $("exclusive").checked,
-        canonical_only: $("canonical").checked,
+        retry_backoff_ms: Number($("retryBackoff").value || 0),
+        refresh_concurrency: Number($("refreshConcurrency")?.value || 10),
+        exclusive: true,
+        canonical_only: true,
         selected_indices: [...selected],
       },
     });
     lastRefreshResult = result;
-    $("output").value = pretty(result.exported);
+    const exported = Array.isArray(result.exported) ? result.exported : (result.canonical || []);
+    const text = pretty(exported);
+    $("output").value = text;
     const okRows = result.results.filter((r) => r.ok);
     const failRows = result.results.filter((r) => r.ok === false);
     const skippedRows = result.results.filter((r) => r.skipped);
@@ -589,10 +624,14 @@ async function refresh() {
     for (const r of failRows) log(`FAIL #${r.index}: ${r.error}`);
     for (const r of okRows) log(`OK #${r.index}: AT#${r.access_fingerprint} RT#${r.refresh_fingerprint} attempts=${r.attempts || 1} ${r.rotated_refresh_token ? "返回新RT，旧RT可能失效" : "未返回新RT，旧RT不会因此失效"}`);
     if (skippedCount) log(`SKIP 汇总：${skippedCount} 条未选中，未刷新。`);
-    log(`完成：成功 ${result.refreshed}，失败 ${result.failed}，跳过 ${skippedCount}，间隔=${result.request_interval_ms}ms，总尝试=${result.retry_attempts}，exclusive=${result.exclusive}`);
+    if (exported.length) {
+      clickDownload(text, `rt-refresh-refreshed-cpa-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+      log(`已刷新并导出 CPA JSON：成功 ${result.refreshed}，失败 ${result.failed}，跳过 ${skippedCount}，下载 ${exported.length} 条；并发=${result.refresh_concurrency || 1}，间隔=${result.request_interval_ms}ms，总尝试=${result.retry_attempts}。`);
+    } else {
+      log(`刷新完成但没有成功项可导出：成功 0，失败 ${result.failed}，跳过 ${skippedCount}。转换格式不能修复已失效/需重登的 RT。`);
+    }
   } finally {
-    $("refresh").disabled = false;
-    $("refresh").textContent = "刷新 RT 并生成导出";
+    setRefreshBusy(false);
   }
 }
 
@@ -600,7 +639,7 @@ function sample() {
   $("input").value = pretty({
     accounts: [
       {
-        name: "ctf-codex-account",
+        name: "codex-account",
         credentials: {
           access_token: "eyJ.mock.old-at",
           refresh_token: "rt_mock_please_replace",
@@ -612,7 +651,7 @@ function sample() {
     ]
   });
   invalidateParsedInputCache();
-  log("样例已填充，记得换成你的 CTF JSON。");
+  log("样例已填充，记得换成你的 CPA JSON。");
 }
 
 function download() {
@@ -640,7 +679,7 @@ function downloadEachRefreshed() {
   if (lastRefreshResult && !lastRefreshResult.canonical?.length) {
     return log("本轮刷新成功 0 个，没有刷新后的单账号 JSON 可下载。旧 RT 已失败就别硬装新凭证了。");
   }
-  log("还没有刷新结果：刷新后 ZIP 必须先点“刷新 RT 并生成导出”。如果你只是要 Sub2API 转 CPA JSON，请点 A 区“导出 CPA JSON（无需刷新）”。");
+  log("还没有刷新结果：这个 ZIP 只打包本轮刷新成功项；要生成 CPA JSON 请直接点“刷新并导出 CPA JSON”，只改格式则点“仅转换导出 CPA JSON”。");
 }
 
 function downloadEachImported() {
@@ -984,14 +1023,12 @@ function toggleRawCredentials() {
   rawCredentialsVisible = !rawCredentialsVisible;
   $("toggleRawCredentials").textContent = rawCredentialsVisible ? "隐藏原文凭证" : "显示原文凭证";
   renderCredentialDetails(false);
-  log(rawCredentialsVisible ? "已显示原文凭证。CTF 模式也别把截图乱发，笨蛋。" : "已隐藏原文凭证，改回摘要显示。");
+  log(rawCredentialsVisible ? "已显示原文凭证。截图外发前自己先检查，别把 token 晾出去。" : "已隐藏原文凭证，改回摘要显示。");
 }
 
 async function startOAuthLogin() {
   const scope = "openid email profile offline_access";
-  const resp = await fetch(`/api/oauth/start?scope=${encodeURIComponent(scope)}`, { cache: "no-store" });
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  const data = await fetchJSON(`/api/oauth/start?scope=${encodeURIComponent(scope)}`, { cache: "no-store" });
   lastOAuthStart = data;
   $("oauthOutput").value = pretty(data);
   log(`已生成 Codex 登录链接，回调地址：${data.redirect_uri}`);
@@ -1005,7 +1042,7 @@ function openOAuthLogin() {
 }
 
 async function refreshOAuthLogins() {
-  const data = await fetch("/api/oauth/latest", { cache: "no-store" }).then((r) => r.json());
+  const data = await fetchJSON("/api/oauth/latest", { cache: "no-store" });
   $("oauthOutput").value = pretty(data);
   log(`已刷新在线登录结果：${data.count || 0} 条。`);
 }
@@ -1222,9 +1259,9 @@ function exportConvertedCpaJson() {
   if (!items.length) return log("没有导入内容，无法导出 CPA JSON。");
   const text = pretty(items);
   $("output").value = text;
-  clickDownload(text, `rt-refresh-sub2api-to-cpa-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+  clickDownload(text, `rt-refresh-cpa-converted-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
   const refreshedCount = refreshedCanonicalByIndex().size;
-  log(`已导出 ${items.length} 条 Sub2API→CPA/Codex auth JSON；刷新成功项优先使用新 token：${refreshedCount} 条，其余已转换保留。`);
+  log(`已仅转换导出 ${items.length} 条 CPA/Codex auth JSON（不刷新 RT）；已有刷新成功项会优先使用新 token：${refreshedCount} 条。`);
 }
 
 function downloadNormalCredentials() {
@@ -1245,7 +1282,7 @@ function downloadNormalCredentials() {
     const refreshed = okByIndex.get(i);
     const value = refreshed ? { ...canonicalMetadataFromEntry(doc), ...refreshed } : toCliProxyCredential(doc, i);
     const result = resultByIndex.get(i) || null;
-    const cls = classifyNormalCredential(value, result);
+    const cls = classifyNormalCredential(doc, result);
     const source = importedSourceNames[i] || candidateNameFromEntry(value) || candidateNameFromEntry(doc) || `codex-${i + 1}`;
     if (cls.normal) items.push({ name: source, value });
     else rejected.push({ index: i, source, reason: cls.reason });
@@ -1275,7 +1312,7 @@ for (const eventName of ["dragleave", "drop"]) {
 }
 dropzone.addEventListener("drop", (ev) => importFiles(ev.dataTransfer.files).catch((e) => log(e.message)));
 $("analyze").addEventListener("click", () => analyze().catch((e) => log(e.message)));
-$("refresh").addEventListener("click", () => refresh().catch((e) => log(e.message)));
+$("refresh").addEventListener("click", () => refreshAndExportCpaJson().catch((e) => log(e.message)));
 $("sample").addEventListener("click", sample);
 $("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; $("credentialDetails").innerHTML = ""; currentEntries = []; selected.clear(); importedSourceNames = []; lastCredentialItems = []; entryPage = 1; credentialPage = 1; lastRefreshResult = null; invalidateParsedInputCache(); updateSummary(); log("已清空。"); });
 $("selectAll").addEventListener("click", () => {
@@ -1289,6 +1326,7 @@ $("invertSelection").addEventListener("click", () => {
 });
 $("download").addEventListener("click", download);
 $("exportConvertedCpaJson").addEventListener("click", exportConvertedCpaJson);
+$("refreshAndExportCpaJson").addEventListener("click", () => refreshAndExportCpaJson().catch((e) => log(e.message)));
 $("downloadEachRefreshed").addEventListener("click", downloadEachRefreshed);
 $("downloadNormalCredentials").addEventListener("click", downloadNormalCredentials);
 $("downloadEachImported").addEventListener("click", downloadEachImported);

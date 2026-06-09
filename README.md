@@ -1,6 +1,6 @@
 # rt-refresh
 
-一个独立的本地 CPA / Codex RT 刷新管理台：导入 CPA JSON 或 raw RT，使用 RT 刷新 AT，导出只保留刷新成功凭证的新 CPA JSON，并提供 CTF 环境下的浏览器/CLI/代理请求头诊断。
+一个独立的 CPA / Codex RT 刷新管理台：导入 CPA/Sub2API JSON 或 raw RT，使用 RT 刷新 AT，并直接导出 CPA/Codex auth JSON；同时提供浏览器/CLI/代理请求头诊断。
 
 ## 来源研究
 
@@ -16,26 +16,24 @@
 
 - 支持多选/拖拽导入多个 CLIProxyAPI / sub2api / JSONL 形态的 CPA JSON，也支持一行一个 `rt...` raw RT。
 - 本地解析账号，显示 token 指纹，不直接展示密钥；账号概览和凭证明细按 30 条分页，支持本页/全部选择与展开/折叠。
-- 导入凭证明细面板：显示来源文件、email/account/user/org/plan、AT/RT/ID 摘要或 CTF 原文、AT 剩余时间。
+- 导入凭证明细面板：显示来源文件、email/account/user/org/plan、AT/RT/ID 摘要或原文、AT 剩余时间。
 - 5 小时窗口面板：优先展示导入 JSON 内的 `quota_5h_*` / `rate_limit_reset_at` 等字段；没有字段时按 `last_refresh + 5h` 做本地窗口估算；同时保留并展示 `quota_weekly_*` / `quota_7d_*` 周限额字段。
 - 在线 Codex 登录：生成 Codex PKCE 登录链接，处理 `/oauth/callback`，回调成功后可从内存列表下载 CPA JSON。
 - 刷新失败会显示上游 OAuth 返回的真实错误，而不是 `[object Object]`。
-- 批量刷新 RT，支持保守串行、请求间隔、临时错误重试和指数退避。
+- 批量刷新 RT，默认按参考项目风格并发 10、无额外间隔、单次尝试；也支持手动设置串行间隔、临时错误重试和指数退避。
 - 账号勾选支持全选可刷新、全不选、反选。
-- 默认“exclusive”导出：只保留刷新成功的凭证。
-- 默认导出 CLIProxyAPI/Codex auth 数组，避免把 Sub2API `credentials` 包装误当成可直接放入 CLIProxyAPI `auths/` 的文件。
-- 页面显式提供“导出 CPA JSON（Sub2API转换）”按钮；它会把当前导入的 Sub2API/包装数组转换为单个 CPA/Codex auth JSON 数组，刷新成功项优先使用新 token，未刷新项也转换保留。
-- 导出区按工作流分成 3 个明确出口：A「导出 CPA JSON（无需刷新）」、B「刷新后新凭证 ZIP」、C「可用凭证 ZIP（筛异常）」。
+- 主按钮“刷新并导出 CPA JSON”：真实刷新选中 RT，成功项立即下载为单个 CPA/Codex auth JSON 数组。
+- “仅转换导出 CPA JSON”：不请求 OAuth，只把当前 CPA/Sub2API/包装数组统一转成一个 CPA auth JSON 文件；已有刷新成功项会优先用新 token。
+- 导出区按工作流分成 3 个明确出口：A「刷新并导出 CPA JSON」、B「仅转换导出 CPA JSON」、C「ZIP 备份 / 筛异常」。
 - 单账号导出打包为 ZIP；推荐用于 CLIProxyAPI `auths/` 目录。刷新后 ZIP 只含刷新成功的新凭证，原始/Sub ZIP 只做备份。
 - 正常凭证 ZIP 导出：按刷新结果/导入字段筛掉 401、402、需要重新登录、明确无额度的凭证；429 只视为限速，不当异常；输出统一为 CLIProxyAPI/Codex auth JSON。
 - 远程 CPA 一次性清洗/回导：连接 Sub2API/CPA 管理端，拉取账号数据，本地刷新筛选可用凭证，生成无效日志；只有勾选确认才回导。
-- `NV CTF / #jshook 000` 授权标识展示。
 - `/api/fingerprint`：记录请求该接口的客户端 headers，适合让 Codex/Claude CLI 主动访问以获取真实 CLI UA/headers。
 - `/proxy?target=...`：诊断代理，转发请求并在内存里记录请求/响应 headers 与脱敏 body 摘要。
 - `/api/cli-report`：接收本地 companion 上传的 Codex/Claude 环境、进程、配置文件摘要/脱敏预览。
 - OAuth 登录接口：`GET /api/oauth/start`、`POST /api/oauth/exchange`、`GET /oauth/callback`、`GET /api/oauth/latest`、`GET /api/oauth/download/latest`。
 - 个人密码模式：设置 `AUTH_PASSWORD` 或 `RT_REFRESH_PASSWORD` 后，网页、API、Proxy、Companion 上传全部需要 HTTP Basic Auth。
-- CTF 原文捕获模式：设置 `CAPTURE_REDACT=false` 后，服务端捕获不再脱敏；companion 加 `--no-redact` 或 `RT_REFRESH_REDACT=false` 后上传原文报告。
+- 原文捕获模式：设置 `CAPTURE_REDACT=false` 后，服务端捕获不再脱敏；companion 加 `--no-redact` 或 `RT_REFRESH_REDACT=false` 后上传原文报告。
 - 不持久化凭证：服务端不写入导入内容，前端只在浏览器内存保留。
 
 > 如果目标 OAuth 服务支持 refresh-token rotation，并且刷新响应返回新 RT，导出文件会替换为新 RT，旧 RT 可能被服务端废弃；如果目标不轮换 RT 或不返回新 RT，本工具不能保证旧 RT 一定失效。
@@ -49,7 +47,7 @@ npm start
 打开：
 
 ```text
-http://127.0.0.1:8787
+http://localhost:8787
 ```
 
 个人使用建议启用密码：
@@ -113,7 +111,7 @@ docker compose up -d --build
 http://服务器IP:8787
 ```
 
-本项目默认容器内监听 `0.0.0.0:8787`，本地 `npm start` 默认监听 `127.0.0.1:8787`。如果放到远端服务器，建议只在可信内网或反代鉴权后访问；工具本身不会保存凭证，但浏览器页面里会短暂持有你导入的 CPA JSON。
+本项目默认监听 `0.0.0.0:8787`；本机访问用 `http://localhost:8787`，服务器访问用 `http://服务器IP:8787`。工具本身不会保存凭证，但浏览器页面里会短暂持有你导入的 CPA JSON。
 
 停止：
 
@@ -172,13 +170,13 @@ npm run probe -- --base http://服务器IP:8787 --basic-auth admin:change-this-p
 让任意 CLI 或脚本请求：
 
 ```bash
-curl -A "codex-cli/0.91.0" http://127.0.0.1:8787/api/fingerprint
+curl -A "codex-cli/0.91.0" http://localhost:8787/api/fingerprint
 ```
 
 启用密码时：
 
 ```bash
-curl -u admin:'change-this-password' -A "codex-cli/0.91.0" http://127.0.0.1:8787/api/fingerprint
+curl -u admin:'change-this-password' -A "codex-cli/0.91.0" http://localhost:8787/api/fingerprint
 ```
 
 服务会在“CLI / Proxy 捕获”里记录该请求的服务端可见 headers。
@@ -188,13 +186,13 @@ curl -u admin:'change-this-password' -A "codex-cli/0.91.0" http://127.0.0.1:8787
 把目标请求发到：
 
 ```text
-http://127.0.0.1:8787/proxy?target=https://example.test/path
+http://localhost:8787/proxy?target=https://example.test/path
 ```
 
 启用密码时：
 
 ```bash
-curl -u admin:'change-this-password' -A "claude-cli-test/1.0" "http://127.0.0.1:8787/proxy?target=https://example.test/path"
+curl -u admin:'change-this-password' -A "claude-cli-test/1.0" "http://localhost:8787/proxy?target=https://example.test/path"
 ```
 
 或用环境变量指定基础目标：
@@ -208,13 +206,13 @@ PROXY_TARGET_BASE=https://example.test npm start
 ### 3. 本地 companion 上传 Codex/Claude 诊断
 
 ```bash
-npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report
+npm run companion -- --endpoint http://localhost:8787/api/cli-report
 ```
 
 如果服务启用了密码，传 `--basic-auth 用户名:密码`：
 
 ```bash
-npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-auth admin:change-this-password
+npm run companion -- --endpoint http://localhost:8787/api/cli-report --basic-auth admin:change-this-password
 ```
 
 默认采集：
@@ -223,16 +221,16 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-aut
 - 常见 `~/.codex` / `~/.claude` 配置文件存在性、大小、mtime、sha256、脱敏预览
 - Codex/Claude/OpenAI/Anthropic 相关本机进程命令行的脱敏摘要
 
-默认不上传原始 secret/token/cookie。若在 CTF 内网明确需要原文预览，可加：
+默认不上传原始 secret/token/cookie。若需要原文预览，可加：
 
 ```bash
-npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --include-raw
+npm run companion -- --endpoint http://localhost:8787/api/cli-report --include-raw
 ```
 
-CTF 原文报告模式：
+原文报告模式：
 
 ```bash
-npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-auth admin:change-this-password --no-redact
+npm run companion -- --endpoint http://localhost:8787/api/cli-report --basic-auth admin:change-this-password --no-redact
 ```
 
 捕获记录保存在服务内存中，重启即清空。
@@ -311,7 +309,7 @@ GET  /api/oauth/download/:id
 - 周限额：读取并展示 `quota_weekly_limit`、`quota_weekly_used`、`quota_weekly_remaining`、`quota_weekly_reset_at`，也兼容 `quota_7d_*`、`weekly_quota_*`、`weekly.*`。
 - 分页折叠：账号概览和凭证明细每页 30 条；可全选本页/全部可刷新账号，也可展开或折叠当前页。
 
-注意：本地估算不是上游实时额度查询；若 CTF 目标返回了真实 quota 字段，面板会优先显示那些字段。别把估算当圣旨，宝宝。
+注意：本地估算不是上游实时额度查询；若导入数据里带真实 quota 字段，面板会优先显示那些字段。别把估算当圣旨。
 
 ## 个人密码模式
 

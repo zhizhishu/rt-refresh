@@ -19,7 +19,7 @@ function hasFlag(...names) {
 }
 
 function trimBase(value) {
-  return String(value || "http://127.0.0.1:8787").replace(/\/+$/, "");
+  return String(value || "http://localhost:8787").replace(/\/+$/, "");
 }
 
 function authHeader(basicAuth) {

@@ -140,3 +140,13 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Added parsed-input / credential-item caching so 990 imported credentials are not repeatedly parsed during overview/detail/export interactions.
 - Changed the refresh-ZIP no-result log to point users to the A-section no-refresh CPA JSON export instead of an old backup button name.
 - Validation: `node --check public/app.js`, `npm test` 12/12, and local HTTP smoke for HTML/JS/CSS workflow evidence.
+
+
+## 2026-06-09T07:51:44Z
+
+- Reworked export workflow so the primary action is real `刷新并导出 CPA JSON`: it calls `/api/refresh`, forces CPA/Codex canonical JSON, and downloads one JSON file for refreshed successes.
+- Kept `仅转换导出 CPA JSON` as the explicit no-refresh path and moved ZIP actions into advanced backup/filtering.
+- Added reference-style batch refresh concurrency (`refresh_concurrency`, default 10) with interval fallback to serial mode.
+- Replaced public challenge-label wording with neutral diagnostics wording and changed the default bind host to `0.0.0.0`.
+- Hardened frontend API parsing so HTML/non-JSON responses produce a readable `/api` routing/deployment diagnostic instead of the browser's raw JSON parse error.
+- Validation: node syntax checks passed, `npm test` passed 12/12, local HTTP smoke passed for UI labels/no public challenge text/startup log.

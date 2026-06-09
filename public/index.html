@@ -8,20 +8,16 @@
   </head>
   <body>
     <main class="shell">
-      <section class="auth-banner">
-        <strong>NV CTF / #jshook 000</strong>
-        <span>正在进行 CTF，已取得 jshook 授权；当前目标为内网自建仿真环境。</span>
-      </section>
       <section class="hero">
         <div>
           <p class="eyebrow">LOCAL CPA ROTATION CONSOLE</p>
           <h1>rt-refresh</h1>
-          <p class="lead">导入 CPA / Codex JSON，刷新 RT，导出只保留新凭证的 CPA JSON。所有凭证只在本地浏览器和本地服务间流动，不落盘。</p>
+          <p class="lead">导入 CPA / Codex / Sub2API JSON，刷新 RT，直接导出 CPA auth JSON。所有凭证只在浏览器和本服务间流动，不落盘。</p>
         </div>
         <div class="status-card">
           <span class="dot"></span>
-          <strong>127.0.0.1 only</strong>
-          <small>刷新成功且目标支持 RT rotation 时，旧 RT 会自然失效；否则只能更新 AT。</small>
+          <strong>0.0.0.0 ready</strong>
+          <small>默认按参考项目监听所有网卡；刷新使用 Codex/OpenAI 参考 OAuth 参数。</small>
         </div>
       </section>
 
@@ -44,7 +40,7 @@
         <div class="panel-head">
           <div>
             <h2>0b. 一键捕获 / CLI 捕获</h2>
-            <p>最简单：在要采集的本机跑临时探针命令。它会创建临时目录，必要时临时下载 portable Node，自动打点 + 上传 Codex/Claude 诊断，跑完删除临时目录并退出。CTF 原文模式：服务端 <code>CAPTURE_REDACT=false</code>，命令加 <code>--raw</code>。</p>
+            <p>最简单：在要采集的本机跑临时探针命令。它会创建临时目录，必要时临时下载 portable Node，自动打点 + 上传 Codex/Claude 诊断，跑完删除临时目录并退出。原文模式：服务端 <code>CAPTURE_REDACT=false</code>，命令加 <code>--raw</code>。</p>
           </div>
           <div class="actions compact">
             <button id="refreshCaptures">刷新捕获</button>
@@ -96,7 +92,7 @@
           </label>
           <label>
             CPA 密码 / Admin API Key
-            <input id="remoteCpaKey" type="password" autocomplete="off" placeholder="x-api-key / bearer token / localhost password" />
+            <input id="remoteCpaKey" type="password" autocomplete="off" placeholder="x-api-key / bearer token / admin password" />
           </label>
           <label>
             认证方式
@@ -174,23 +170,23 @@
             </label>
             <label>
               请求间隔 ms
-              <input id="requestInterval" type="number" min="0" max="60000" value="1000" />
+              <input id="requestInterval" type="number" min="0" max="60000" value="0" />
+            </label>
+            <label>
+              并发数
+              <input id="refreshConcurrency" type="number" min="1" max="20" value="10" />
             </label>
             <label>
               总尝试次数
-              <input id="retryAttempts" type="number" min="1" max="5" value="3" />
+              <input id="retryAttempts" type="number" min="1" max="5" value="1" />
             </label>
             <label>
               退避基准 ms
-              <input id="retryBackoff" type="number" min="0" max="60000" value="1000" />
+              <input id="retryBackoff" type="number" min="0" max="60000" value="0" />
             </label>
           </div>
-          <p class="hint">保守模式按参考项目思路：串行刷新、间隔请求、临时错误指数退避；`invalid_grant` / `refresh_token_reused` 这类不可重试错误不会硬刷。</p>
-          <div class="toggles">
-            <label><input id="exclusive" type="checkbox" checked /> 只导出刷新成功的凭证</label>
-            <label><input id="canonical" type="checkbox" checked /> 输出框使用 CLIProxyAPI/Codex auth 数组</label>
-          </div>
-          <button id="refresh" class="primary">刷新 RT 并生成导出</button>
+          <p class="hint">默认沿用参考项目的批量刷新习惯：并发 10、无额外间隔、单次尝试；只有你手动加间隔/重试时才进入保守慢刷。不可重试错误不会硬刷。</p>
+          <button id="refresh" class="primary">刷新并导出 CPA JSON</button>
         </article>
       </section>
 
@@ -209,7 +205,7 @@
         <div class="panel-head">
           <div>
             <h2>导入凭证 / 5小时窗口</h2>
-            <p>显示当前导入 CPA 的账号、凭证、AT 到期剩余和 5 小时窗口。原文显示只在你开启 CTF 原文模式时使用。</p>
+            <p>显示当前导入 CPA 的账号、凭证、AT 到期剩余和 5 小时窗口。原文显示只在你开启原文模式时使用。</p>
           </div>
           <div class="actions compact">
             <button id="renderCredentialDetails" class="ghost">刷新凭证明细</button>
@@ -222,8 +218,8 @@
       <section class="panel output-panel">
         <div class="panel-head">
           <div>
-            <h2>3. 导出 CPA JSON / CLIProxy 凭证</h2>
-            <p>先选正确出口，别在 ZIP 迷宫里打转：Sub2API 转 CPA JSON 不需要刷新；刷新后 ZIP 才需要先点“刷新 RT”。</p>
+            <h2>3. 导出 CPA JSON</h2>
+            <p>单行规则：刷新并导出 = 真刷新选中 RT 后下载一个 CPA JSON；仅转换导出 = 不刷新，只把当前输入转成 CPA JSON。</p>
           </div>
           <div class="actions compact">
             <button id="copy" class="ghost">复制</button>
@@ -233,21 +229,22 @@
         </div>
         <div class="export-workflow">
           <article class="export-card export-card-primary">
-            <span class="step-chip">A · 无需刷新</span>
-            <h3>Sub2API → CPA JSON</h3>
-            <p>把当前导入的 <code>credentials</code> / 包装数组转换成单个 CPA/Codex auth JSON 数组。990 条也走这个，不会要求先刷新。</p>
-            <button id="exportConvertedCpaJson" class="primary inline-primary">导出 CPA JSON（无需刷新）</button>
+            <span class="step-chip">A · 真刷新</span>
+            <h3>刷新并导出 CPA JSON</h3>
+            <p>刷新当前选中的 RT；成功项立即下载为单个 CPA/Codex auth JSON 数组，不再绕 ZIP。</p>
+            <button id="refreshAndExportCpaJson" class="primary inline-primary">刷新并导出 CPA JSON</button>
           </article>
           <article class="export-card">
-            <span class="step-chip">B · 必须先刷新</span>
-            <h3>刷新后新凭证 ZIP</h3>
-            <p>只打包刷新成功并拿到新 token 的账号；没有刷新结果时点它会提示先刷新，这是正常逻辑。</p>
-            <button id="downloadEachRefreshed">下载刷新后 CLIProxy ZIP</button>
+            <span class="step-chip">B · 只转换</span>
+            <h3>仅转换导出 CPA JSON</h3>
+            <p>不请求 OAuth；把当前 CPA/Sub2API/包装数组统一转成一个 CPA auth JSON 文件。</p>
+            <button id="exportConvertedCpaJson">仅转换导出 CPA JSON</button>
           </article>
           <article class="export-card">
-            <span class="step-chip">C · 筛异常</span>
-            <h3>可用凭证 ZIP</h3>
-            <p>导出可用 CPA/Codex auth ZIP，会剔除 401/402、auth_unavailable、token invalidated、需要重登和明确无额度。</p>
+            <span class="step-chip">C · 高级备份</span>
+            <h3>ZIP 备份 / 筛异常</h3>
+            <p>ZIP 只做备份或按账号拆分；可用 ZIP 会剔除 401/402、auth_unavailable、token invalidated、需要重登和明确无额度。</p>
+            <button id="downloadEachRefreshed" class="ghost">下载刷新成功 ZIP</button>
             <button id="downloadNormalCredentials">下载可用凭证 ZIP</button>
           </article>
         </div>

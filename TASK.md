@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-09T07:05:04Z
+last_updated: 2026-06-09T07:42:33Z
 
 ## Current Goal
 
@@ -8,11 +8,12 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Done
 
-- Redesigned the export panel into three explicit workflow cards: A no-refresh Sub2API→CPA JSON, B refresh-required new credential ZIP, and C abnormal-filtered usable credential ZIP.
+- Primary refresh now really calls `/api/refresh` and immediately downloads one refreshed CPA JSON file; ZIP paths are advanced backup only.
+- Redesigned the export panel into three explicit workflow cards: A real `刷新并导出 CPA JSON`, B `仅转换导出 CPA JSON`, and C advanced ZIP backup/filtering.
 - Removed the misleading `导出 CPA 凭证ZIP` shortcut and added parsed-input caching to reduce repeated parsing/rendering stalls with large imports such as 990 credentials.
 - Added `auth_unavailable` / `authentication_error` / token invalidated detection so invalidated sessions are treated as re-login/fatal and excluded from normal credential exports/remote clean results.
 - OAuth error parsing now handles nested `{error:{code,message,type}}` responses and gives an explicit re-login hint for invalidated auth tokens.
-- Added explicit single-file `导出 CPA JSON（Sub2API转换）` button that converts current Sub2API/wrapped input into CPA/Codex auth JSON array; refreshed successes use new tokens, unrefreshed rows are converted and retained.
+- Added explicit single-file `仅转换导出 CPA JSON` button that converts current CPA/Sub2API/wrapped input into a CPA/Codex auth JSON array without refreshing.
 - Added 30-per-page paginated, collapsible account overview and imported credential/5h-window panels with page/global selection controls.
 - Added weekly quota display for `quota_weekly_*`, `quota_7d_*`, `weekly_quota_*`, and `weekly.*` fields without removing 5h quota display.
 - Changed refreshed/normal ZIP export paths to produce CLIProxyAPI/Codex auth JSON; original/Sub2API shape remains only in the explicit original/Sub backup ZIP.
@@ -26,15 +27,15 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Suppressed per-row `not_selected` noise by returning a skip count unless detailed skip rows are explicitly requested.
 - Split single-account exports into explicit refreshed downloads and original-import backups to prevent accidentally downloading stale credentials as refreshed output.
 - Single-account exports are packaged as ZIP files instead of triggering many separate JSON downloads.
-- Conservative refresh mode follows reference-project behavior: serial requests, configurable per-account interval, total retry attempts, exponential backoff, and no retries for `invalid_grant` / `refresh_token_reused` / session-ended style credential errors.
-- Added NV CTF / `#jshook 000` banner and a browser-visible environment fingerprint panel with server-observed request header echo. Sensitive request headers are redacted.
+- Refresh mode follows reference-project behavior by defaulting to batch concurrency 10, no extra interval, and one attempt; manual interval/retry/backoff remain available, and non-retryable credential errors are not retried.
+- Removed public challenge-label wording and kept the browser-visible environment fingerprint panel with server-observed request header echo. Sensitive request headers are redacted by default.
 - Implemented all three CLI diagnostics:
   - CLI/client active requests to `/api/fingerprint` are captured in memory.
   - `/proxy?target=...` forwards requests and captures redacted request/response headers and body summaries.
   - `scripts/cli-companion.mjs` uploads redacted Codex/Claude/OpenAI/Anthropic/Stainless/proxy environment, config-file summaries, and process command-line summaries to `/api/cli-report`.
 - Added personal password mode. Setting `AUTH_PASSWORD` or `RT_REFRESH_PASSWORD` enables HTTP Basic Auth for the UI, API, proxy, and companion upload. Default user is `admin`.
 - `scripts/cli-companion.mjs` supports `--basic-auth user:password` and sanitizes auth/endpoint arguments in uploaded reports.
-- Added CTF raw capture mode. Setting `CAPTURE_REDACT=false` disables server-side redaction for `/api/fingerprint`, `/api/captures`, `/api/cli-report`, and `/proxy?target=...`; companion supports `--no-redact` / `RT_REFRESH_REDACT=false` for raw reports.
+- Added raw capture mode. Setting `CAPTURE_REDACT=false` disables server-side redaction for `/api/fingerprint`, `/api/captures`, `/api/cli-report`, and `/proxy?target=...`; companion supports `--no-redact` / `RT_REFRESH_REDACT=false` for raw reports.
 - Added one-command local probe: `npm run probe -- --base http://服务器IP:8787 --basic-auth admin:密码 --raw`. It performs CLI fingerprint hit + companion upload, optionally proxy test with `--proxy-target`, then exits.
 - Added no-residue temporary probe launchers:
   - `scripts/temp-probe.sh` for Linux/macOS.
@@ -57,7 +58,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - `GET /api/oauth/latest` lists in-memory login results.
   - `GET /api/oauth/download/latest` / `:id` downloads CPA JSON.
 - Added imported credential details panel:
-  - Shows source, email/account/user/org/plan, AT/RT/ID summary or CTF raw token text.
+  - Shows source, email/account/user/org/plan, AT/RT/ID summary or raw token text.
   - Shows AT remaining time.
   - Shows 5-hour quota/window from imported `quota_5h_*` / `rate_limit_reset_at` fields, or local `last_refresh + 5h` estimate when no upstream quota field exists.
 - Updated README with OAuth APIs, quota display rules, and reference-derived OAuth parameters.
@@ -79,6 +80,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Validation
 
+- Latest validation: `node --check public/app.js src/server.js src/cpa.js scripts/cli-companion.mjs scripts/quick-probe.mjs` passed; `npm test` passed 12/12; local HTTP smoke confirmed refresh/export labels, concurrency input, no public challenge-label wording, and `0.0.0.0` startup log.
 - UI workflow validation passed: `node --check public/app.js`, `npm test` 12/12, and local HTTP smoke confirmed workflow cards, primary no-refresh CPA JSON button, wrong-click hint, removed misleading ZIP button, and parsed-input cache.
 - Validation for invalidated-token handling: `node --check public/app.js`, `node --check src/server.js`, `node --check src/cpa.js`, `npm test` 12/12, and local HTTP smoke for auth_unavailable frontend rules.
 - Local HTTP smoke confirmed `导出 CPA JSON（Sub2API转换）` button, event binding, conversion function, and unrefreshed-row conversion branch.
@@ -131,7 +133,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Deploy latest image (`0451056` / digest `sha256:fbf9842e94ef7bd3bf7bdb6693dba0b8560552c33763b68063dca6dbb802e4b3`) and hard refresh browser.
 - Use the new `0b. CLI / Proxy 捕获` panel for CLI active requests, proxy captures, and companion reports.
 - For personal use, set `AUTH_USER` and `AUTH_PASSWORD` in Docker Compose before exposing the port.
-- For CTF raw capture, set `CAPTURE_REDACT=false`; for companion raw report, add `--no-redact`.
+- For raw capture, set `CAPTURE_REDACT=false`; for companion raw report, add `--no-redact`.
 - Prefer the one-command probe for browser capture docs instead of showing three separate paths.
 - Prefer the temporary no-residue launcher when the target machine should not keep project files or Node installs.
 - If browser says ZIP was packaged but no file appears, use the generated fallback download link shown above the output box.

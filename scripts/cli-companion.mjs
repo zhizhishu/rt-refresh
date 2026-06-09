@@ -15,7 +15,7 @@ function argValue(name, fallback = "") {
   return pref ? pref.slice(name.length + 1) : fallback;
 }
 
-const endpoint = argValue("--endpoint", process.env.RT_REFRESH_ENDPOINT || "http://127.0.0.1:8787/api/cli-report");
+const endpoint = argValue("--endpoint", process.env.RT_REFRESH_ENDPOINT || "http://localhost:8787/api/cli-report");
 const explicitBasicAuth = argValue("--basic-auth", process.env.RT_REFRESH_BASIC_AUTH || "");
 const companionRedact = !["0", "false", "no", "off", "raw"].includes(String(process.env.RT_REFRESH_REDACT ?? "true").toLowerCase()) && !process.argv.includes("--no-redact");
 const includeRaw = process.argv.includes("--include-raw") || !companionRedact;
@@ -181,7 +181,7 @@ async function main() {
   for (const file of [...new Set(candidateFiles())]) files.push(await inspectFile(file));
   const report = {
     kind: "rt-refresh-cli-companion-report",
-    ctf_authorization: "NV CTF / #jshook 000",
+    diagnostic_context: "cli/browser diagnostics",
     collected_at: new Date().toISOString(),
     companion: {
       argv: sanitizedArgv(process.argv.slice(2)),
@@ -200,7 +200,7 @@ async function main() {
     processes: await processList(),
     notes: [
       "Default mode redacts token/secret/cookie/authorization-like values and stores hashes/lengths.",
-      "Use --include-raw for raw file text, or --no-redact / RT_REFRESH_REDACT=false for raw CTF reports.",
+      "Use --include-raw for raw file text, or --no-redact / RT_REFRESH_REDACT=false for raw reports.",
     ],
   };
   const headers = { "content-type": "application/json", "user-agent": `rt-refresh-companion/${process.version}` };

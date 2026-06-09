@@ -300,6 +300,17 @@ function clampInt(value, fallback, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
+async function runWithConcurrency(items, limit, worker) {
+  let cursor = 0;
+  const workerCount = Math.max(1, Math.min(limit, items.length || 1));
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (cursor < items.length) {
+      const position = cursor++;
+      await worker(items[position], position);
+    }
+  }));
+}
+
 function isNonRetryableRefreshError(err) {
   const raw = `${oauthErrorCode(err?.data || {})} ${err?.message || ""}`.toLowerCase();
   return ["invalid_grant", "refresh_token_reused", "app_session_terminated", "auth_unavailable", "authentication_error", "invalid_client", "invalid_scope"].some((x) => raw.includes(x)) ||
@@ -412,22 +423,26 @@ export async function refreshCPA(input, options = {}) {
   const requestInterval = clampInt(options.request_interval_ms, 0, 0, 60000);
   const retryAttempts = clampInt(options.retry_attempts, 1, 1, 5);
   const retryBackoff = clampInt(options.retry_backoff_ms, 1000, 0, 60000);
+  const configuredConcurrency = clampInt(options.refresh_concurrency ?? options.concurrency, 10, 1, 20);
+  const refreshConcurrency = requestInterval > 0 ? 1 : configuredConcurrency;
   const replacementByIndex = new Map();
-  const results = [];
+  const resultByIndex = new Map();
+  const refreshQueue = [];
   let skipped = 0;
-  let attempted = 0;
   for (const entry of entries) {
     if (!selected.has(entry.index)) {
       skipped++;
-      if (includeSkippedDetails) results.push({ index: entry.index, label: entry.label, skipped: true, reason: "not_selected" });
+      if (includeSkippedDetails) resultByIndex.set(entry.index, { index: entry.index, label: entry.label, skipped: true, reason: "not_selected" });
       continue;
     }
     if (!entry.credentials.refresh_token) {
-      results.push({ index: entry.index, label: entry.label, ok: false, error: "missing_refresh_token" });
+      resultByIndex.set(entry.index, { index: entry.index, label: entry.label, ok: false, error: "missing_refresh_token" });
       continue;
     }
-    if (attempted > 0 && requestInterval > 0) await sleep(requestInterval);
-    attempted++;
+    refreshQueue.push(entry);
+  }
+  await runWithConcurrency(refreshQueue, refreshConcurrency, async (entry, position) => {
+    if (position > 0 && requestInterval > 0) await sleep(requestInterval);
     try {
       const refreshed = await refreshTokenWithRetry({
         refresh_token: entry.credentials.refresh_token,
@@ -442,7 +457,7 @@ export async function refreshCPA(input, options = {}) {
       const preserved = applyRefresh(entry, tokenResp);
       const canonical = toCanonicalCPA(entry, tokenResp);
       replacementByIndex.set(entry.index, { preserved, canonical });
-      results.push({
+      resultByIndex.set(entry.index, {
         index: entry.index,
         label: entry.label,
         ok: true,
@@ -454,7 +469,7 @@ export async function refreshCPA(input, options = {}) {
       });
     } catch (err) {
       const hint = oauthErrorHint(err.data || {});
-      results.push({
+      resultByIndex.set(entry.index, {
         index: entry.index,
         label: entry.label,
         ok: false,
@@ -464,8 +479,9 @@ export async function refreshCPA(input, options = {}) {
         attempts: err.attempts || 1,
       });
     }
-  }
-  const refreshedEntries = [...replacementByIndex.values()];
+  });
+  const results = entries.map((entry) => resultByIndex.get(entry.index)).filter(Boolean);
+  const refreshedEntries = [...replacementByIndex.entries()].sort(([a], [b]) => a - b).map(([, value]) => value);
   const canonicalOnly = Boolean(options.canonical_only);
   const exclusive = Boolean(options.exclusive ?? true);
   return {
@@ -477,6 +493,7 @@ export async function refreshCPA(input, options = {}) {
     request_interval_ms: requestInterval,
     retry_attempts: retryAttempts,
     retry_backoff_ms: retryBackoff,
+    refresh_concurrency: refreshConcurrency,
     exclusive,
     exported: canonicalOnly ? refreshedEntries.map((x) => x.canonical) : replaceFlattened(root, replacementByIndex, exclusive),
     canonical: refreshedEntries.map((x) => x.canonical),
