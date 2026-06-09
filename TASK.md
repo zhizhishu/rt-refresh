@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-09T06:21:18Z
+last_updated: 2026-06-09T06:52:42Z
 
 ## Current Goal
 
@@ -8,6 +8,8 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Done
 
+- Added `auth_unavailable` / `authentication_error` / token invalidated detection so invalidated sessions are treated as re-login/fatal and excluded from normal credential exports/remote clean results.
+- OAuth error parsing now handles nested `{error:{code,message,type}}` responses and gives an explicit re-login hint for invalidated auth tokens.
 - Added explicit single-file `导出 CPA JSON（Sub2API转换）` button that converts current Sub2API/wrapped input into CPA/Codex auth JSON array; refreshed successes use new tokens, unrefreshed rows are converted and retained.
 - Added explicit `导出 CPA 凭证ZIP` button bound to the CLIProxy/Codex normal credential ZIP export path.
 - Added 30-per-page paginated, collapsible account overview and imported credential/5h-window panels with page/global selection controls.
@@ -76,6 +78,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Validation
 
+- Validation for invalidated-token handling: `node --check public/app.js`, `node --check src/server.js`, `node --check src/cpa.js`, `npm test` 12/12, and local HTTP smoke for auth_unavailable frontend rules.
 - Local HTTP smoke confirmed `导出 CPA JSON（Sub2API转换）` button, event binding, conversion function, and unrefreshed-row conversion branch.
 - Local HTTP smoke confirmed `导出 CPA 凭证ZIP` is present and bound to `downloadNormalCredentials`.
 - `node --check public/app.js` passed after pagination/export changes.

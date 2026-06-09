@@ -320,7 +320,7 @@ function isReloginOrFatal(result) {
   const error = String(result?.error || "").toLowerCase();
   if (status === 429 || code.includes("rate_limited") || error.includes("429")) return false;
   if (status === 401 || status === 402) return true;
-  return /app_session_terminated|refresh_token_reused|invalid_grant|invalid_client|unauthorized|payment_required|billing|insufficient_quota|quota_exceeded|no[_ -]?quota|session has ended|signing in|sign in|log in|login|relogin|re-login/.test(`${code} ${error}`);
+  return /auth_unavailable|authentication_error|authentication token has been invalidated|token has been invalidated|invalidated|app_session_terminated|refresh_token_reused|invalid_grant|invalid_client|unauthorized|payment_required|billing|insufficient_quota|quota_exceeded|no[_ -]?quota|session has ended|signing in|sign in|log in|login|relogin|re-login/.test(`${code} ${error}`);
 }
 
 function classifyRemoteAccount(account, result, options = {}) {

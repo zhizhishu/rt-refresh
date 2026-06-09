@@ -689,7 +689,7 @@ const credentialPaths = {
   weeklyReset: [["quota_weekly_reset_at"], ["quota_7d_reset_at"], ["weekly_quota_reset_at"], ["quotaWeeklyResetAt"], ["usage", "quota_weekly_reset_at"], ["usage", "quota_7d_reset_at"], ["quota", "weekly_reset_at"], ["quota", "weeklyResetAt"], ["weekly", "reset_at"], ["weekly", "resetAt"]],
   status: [["status"], ["status_code"], ["statusCode"], ["http_status"], ["httpStatus"], ["error", "status"], ["last_error", "status"]],
   code: [["code"], ["error_code"], ["errorCode"], ["error", "code"], ["last_error", "code"], ["last_error_code"]],
-  error: [["error"], ["message"], ["error_message"], ["errorMessage"], ["last_error"], ["lastError"], ["last_error", "message"]],
+  error: [["error", "message"], ["error", "type"], ["error"], ["message"], ["error_message"], ["errorMessage"], ["last_error", "message"], ["last_error"], ["lastError"]],
 };
 
 function getByPath(obj, path) {
@@ -1114,7 +1114,7 @@ function classifyNormalCredential(entry, result = null) {
     return { normal: true, reason: "rate_limited_429_not_abnormal" };
   }
   if (status === 401 || status === 402) return { normal: false, reason: `http_${status}` };
-  if (/app_session_terminated|refresh_token_reused|invalid_grant|invalid_client|unauthorized|payment_required|billing|insufficient_quota|quota_exceeded|no[_ -]?quota|session has ended|signing in|sign in|log in|login|relogin|re-login/.test(`${code} ${errorText}`)) {
+  if (/auth_unavailable|authentication_error|authentication token has been invalidated|token has been invalidated|invalidated|app_session_terminated|refresh_token_reused|invalid_grant|invalid_client|unauthorized|payment_required|billing|insufficient_quota|quota_exceeded|no[_ -]?quota|session has ended|signing in|sign in|log in|login|relogin|re-login/.test(`${code} ${errorText}`)) {
     return { normal: false, reason: code || "needs_relogin_or_no_quota" };
   }
   if (quota.known && !quota.hasQuota) return { normal: false, reason: quota.reason };

@@ -263,7 +263,7 @@ export async function refreshToken({
 
 
 function formatOAuthError(data, fallbackText = "") {
-  const candidates = [data?.error_description, data?.error, data?.message, data?.raw, fallbackText];
+  const candidates = [data?.error_description, data?.error?.message, data?.error, data?.message, data?.raw, fallbackText];
   for (const value of candidates) {
     if (value == null || value === "") continue;
     if (typeof value === "string") return value;
@@ -273,7 +273,7 @@ function formatOAuthError(data, fallbackText = "") {
 }
 
 function oauthErrorCode(data) {
-  for (const value of [data?.code, data?.error, data?.type]) {
+  for (const value of [data?.code, data?.error?.code, data?.error, data?.type, data?.error?.type]) {
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return "";
@@ -284,6 +284,7 @@ function oauthErrorHint(data) {
   if (code === "refresh_token_reused") return "这个 RT 已经被用过；必须使用那次返回的新 JSON/新 RT，或重新登录获取新 RT。旧 RT 不能再刷新。";
   if (code === "app_session_terminated") return "这个会话已结束；需要重新登录获取新 RT。";
   if (code === "invalid_grant") return "RT 已失效、撤销或过期，不能靠刷新复活。";
+  if (code === "auth_unavailable" || code === "authentication_error") return "服务端已经判定认证 token / 会话不可用；需要重新登录获取新凭证，转换格式不能修复。";
   if (code === "invalid_scope") return "scope 不匹配；优先使用导入文件里的 scope。";
   if (code === "invalid_client") return "client_id 不匹配；检查是否应使用 Codex client_id。";
   return "";
@@ -301,7 +302,8 @@ function clampInt(value, fallback, min, max) {
 
 function isNonRetryableRefreshError(err) {
   const raw = `${oauthErrorCode(err?.data || {})} ${err?.message || ""}`.toLowerCase();
-  return ["invalid_grant", "refresh_token_reused", "app_session_terminated", "invalid_client", "invalid_scope"].some((x) => raw.includes(x));
+  return ["invalid_grant", "refresh_token_reused", "app_session_terminated", "auth_unavailable", "authentication_error", "invalid_client", "invalid_scope"].some((x) => raw.includes(x)) ||
+    /authentication token has been invalidated|token has been invalidated/.test(raw);
 }
 
 function isRetryableRefreshError(err) {

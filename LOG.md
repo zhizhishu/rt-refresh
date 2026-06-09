@@ -125,3 +125,10 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - The new path exports one JSON file containing a CPA/Codex auth array converted from the current imported Sub2API/wrapped input.
 - Refresh-success rows prefer the refreshed canonical token data; unrefreshed/failed rows are still converted via the imported credentials and retained.
 - Validation: `node --check public/app.js`, `npm test` 11/11, local HTTP smoke for button/binding/function, and code check for the unrefreshed conversion branch.
+
+## 2026-06-09T06:52:42Z - Invalidated auth token filtering
+
+- Added detection for `auth_unavailable`, `authentication_error`, and token invalidated messages in normal credential export and remote CPA clean filtering.
+- Frontend error extraction now reads nested `error.message` before falling back to the whole object.
+- OAuth refresh error parsing now reads nested `error.code` / `error.message`; invalidated auth tokens are non-retryable and receive a re-login hint.
+- Validation: `node --check public/app.js`, `node --check src/server.js`, `node --check src/cpa.js`, `npm test` 12/12, and local HTTP smoke for the served frontend rules.

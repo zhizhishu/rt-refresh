@@ -254,7 +254,7 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-aut
 
 清洗规则：
 
-- 剔除：401、402、需要重新登录、`app_session_terminated`、`refresh_token_reused`、`invalid_grant`、`invalid_client`、billing/payment、明确无额度。
+- 剔除：401、402、需要重新登录、`auth_unavailable` / `authentication_error` / token invalidated、`app_session_terminated`、`refresh_token_reused`、`invalid_grant`、`invalid_client`、billing/payment、明确无额度。
 - 剔除：`quota_5h_remaining <= 0` 或 `quota_5h_used >= quota_5h_limit`。
 - 保留：429 / `rate_limited`，因为它只是限速，不代表凭证失效。
 - 默认要求保留项包含 RT；可在页面取消这个要求。
@@ -267,7 +267,7 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-aut
 
 - 保留：刷新成功的凭证、没有异常标记且有 AT/RT 的导入凭证。
 - 保留：`429` / `rate_limited`，它只代表限速，本工具不把它当成需要重登的异常。
-- 排除：`401`、`402`、`app_session_terminated`、`refresh_token_reused`、`invalid_grant`、`invalid_client`、登录/重登提示、billing/payment/明确无额度。
+- 排除：`401`、`402`、`auth_unavailable` / `authentication_error` / token invalidated、`app_session_terminated`、`refresh_token_reused`、`invalid_grant`、`invalid_client`、登录/重登提示、billing/payment/明确无额度。
 - 排除：导入 JSON 明确给出 `quota_5h_remaining <= 0`，或 `quota_5h_used >= quota_5h_limit`。
 - 没有 quota 字段时不强行判死刑；只按 token、过期时间和最近刷新错误筛。
 

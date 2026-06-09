@@ -190,6 +190,29 @@ test("refreshCPA explains reused refresh token errors", async () => {
   });
 });
 
+test("refreshCPA treats auth_unavailable invalidated token as non-retryable", async () => {
+  await withMockTokenSequenceServer([
+    {
+      status: 401,
+      body: {
+        error: {
+          message: "Your authentication token has been invalidated. Please try signing in again.",
+          type: "authentication_error",
+          code: "auth_unavailable",
+        },
+      },
+    },
+    { status: 200 },
+  ], async (tokenURL, calls) => {
+    const input = [{ type: "codex", access_token: "old-at", refresh_token: "old-rt" }];
+    const out = await refreshCPA(input, { token_url: tokenURL, retry_attempts: 3 });
+    assert.equal(calls(), 1);
+    assert.equal(out.failed, 1);
+    assert.equal(out.results[0].code, "auth_unavailable");
+    assert.match(out.results[0].error, /需要重新登录获取新凭证/);
+  });
+});
+
 test("refreshCPA retries transient refresh failures", async () => {
   await withMockTokenSequenceServer([
     { status: 429, body: { error: "rate_limited" } },
