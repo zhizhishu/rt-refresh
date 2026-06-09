@@ -537,6 +537,9 @@ const credentialPaths = {
   quotaUsed: [["quota_5h_used"], ["quota5hUsed"], ["usage", "quota_5h_used"], ["quota", "used"]],
   quotaRemaining: [["quota_5h_remaining"], ["quota5hRemaining"], ["usage", "quota_5h_remaining"], ["quota", "remaining"]],
   quotaReset: [["quota_5h_reset_at"], ["quota5hResetAt"], ["rate_limit_reset_at"], ["rateLimitResetAt"], ["usage", "quota_5h_reset_at"], ["quota", "reset_at"], ["quota", "resetAt"]],
+  status: [["status"], ["status_code"], ["statusCode"], ["http_status"], ["httpStatus"], ["error", "status"], ["last_error", "status"]],
+  code: [["code"], ["error_code"], ["errorCode"], ["error", "code"], ["last_error", "code"], ["last_error_code"]],
+  error: [["error"], ["message"], ["error_message"], ["errorMessage"], ["last_error"], ["lastError"], ["last_error", "message"]],
 };
 
 function getByPath(obj, path) {
@@ -738,6 +741,88 @@ function downloadOAuthLatest() {
   log("已请求下载最新 OAuth 登录 CPA JSON；如果 404，说明还没有登录成功结果。");
 }
 
+function explicitQuotaState(entry) {
+  const remainingRaw = firstAny(entry, credentialPaths.quotaRemaining);
+  const limitRaw = firstAny(entry, credentialPaths.quotaLimit);
+  const usedRaw = firstAny(entry, credentialPaths.quotaUsed);
+  const remaining = remainingRaw === "" ? NaN : Number(remainingRaw);
+  const limit = limitRaw === "" ? NaN : Number(limitRaw);
+  const used = usedRaw === "" ? NaN : Number(usedRaw);
+  if (Number.isFinite(remaining)) return { known: true, hasQuota: remaining > 0, reason: `quota_remaining=${remaining}` };
+  if (Number.isFinite(limit) && Number.isFinite(used)) return { known: true, hasQuota: used < limit, reason: `quota_used=${used}/${limit}` };
+  return { known: false, hasQuota: true, reason: "quota_unknown_allowed" };
+}
+
+function classifyNormalCredential(entry, result = null) {
+  const statusRaw = result?.status || firstAny(entry, credentialPaths.status);
+  const status = Number(statusRaw || 0);
+  const code = String(result?.code || firstAny(entry, credentialPaths.code) || "").toLowerCase();
+  const errorText = String(result?.error || firstAny(entry, credentialPaths.error) || "").toLowerCase();
+  const access = firstAny(entry, credentialPaths.access);
+  const refresh = firstAny(entry, credentialPaths.refresh);
+  const expiresAt = asDateMs(firstAny(entry, credentialPaths.expires));
+  const quota = explicitQuotaState(entry);
+
+  if (result?.ok) return { normal: true, reason: "refreshed_ok" };
+  if (status === 429 || code.includes("rate_limited") || errorText.includes("429")) {
+    return { normal: true, reason: "rate_limited_429_not_abnormal" };
+  }
+  if (status === 401 || status === 402) return { normal: false, reason: `http_${status}` };
+  if (/app_session_terminated|refresh_token_reused|invalid_grant|invalid_client|unauthorized|payment_required|billing|insufficient_quota|quota_exceeded|no[_ -]?quota|session has ended|signing in|sign in|log in|login|relogin|re-login/.test(`${code} ${errorText}`)) {
+    return { normal: false, reason: code || "needs_relogin_or_no_quota" };
+  }
+  if (quota.known && !quota.hasQuota) return { normal: false, reason: quota.reason };
+  if (!access && !refresh) return { normal: false, reason: "missing_access_and_refresh_token" };
+  if (Number.isFinite(expiresAt) && expiresAt <= Date.now() && !refresh) return { normal: false, reason: "expired_without_refresh_token" };
+  return { normal: true, reason: quota.reason };
+}
+
+function currentImportedDocs() {
+  const input = $("input").value.trim();
+  if (!input) return [];
+  return flattenClientInput(parseCredentialText(input));
+}
+
+function downloadNormalCredentials() {
+  let docs;
+  try {
+    docs = currentImportedDocs();
+  } catch (err) {
+    return log(`当前输入无法筛选正常凭证：${err.message}`);
+  }
+  if (!docs.length) return log("没有导入内容，无法筛选正常凭证。");
+
+  const okByIndex = new Map();
+  if (lastRefreshResult?.canonical?.length) {
+    const okResults = lastRefreshResult.results.filter((r) => r.ok);
+    lastRefreshResult.canonical.forEach((item, i) => {
+      const result = okResults[i];
+      if (result) okByIndex.set(result.index, { value: item, result });
+    });
+  }
+
+  const items = [];
+  const rejected = [];
+  const resultByIndex = new Map((lastRefreshResult?.results || []).map((r) => [r.index, r]));
+  docs.forEach((doc, i) => {
+    const refreshed = okByIndex.get(i);
+    const value = refreshed?.value || doc;
+    const result = refreshed?.result || resultByIndex.get(i) || null;
+    const cls = classifyNormalCredential(value, result);
+    const source = importedSourceNames[i] || candidateNameFromEntry(value) || candidateNameFromEntry(doc) || `codex-${i + 1}`;
+    if (cls.normal) items.push({ name: source, value });
+    else rejected.push({ index: i, source, reason: cls.reason });
+  });
+
+  if (!items.length) {
+    const sample = rejected.slice(0, 8).map((x) => `#${x.index} ${x.reason}`).join("; ");
+    return log(`筛选后没有正常凭证。排除 ${rejected.length} 条：${sample}`);
+  }
+  const count = downloadJsonZip(items, `rt-refresh-normal-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`, "codex-normal");
+  const rateLimitedKept = (lastRefreshResult?.results || []).filter((r) => Number(r.status) === 429).length;
+  log(`已打包 ${count} 个正常凭证到 ZIP；排除 ${rejected.length} 条异常。规则：401/402/需要重登/明确无额度会排除；429 只算限速，不当异常${rateLimitedKept ? `（本轮保留 429：${rateLimitedKept} 条）` : ""}。`);
+}
+
 $("file").addEventListener("change", async (ev) => {
   if (!ev.target.files?.length) return;
   await importFiles(ev.target.files);
@@ -775,6 +860,7 @@ $("invertSelection").addEventListener("click", () => {
 });
 $("download").addEventListener("click", download);
 $("downloadEachRefreshed").addEventListener("click", downloadEachRefreshed);
+$("downloadNormalCredentials").addEventListener("click", downloadNormalCredentials);
 $("downloadEachImported").addEventListener("click", downloadEachImported);
 $("copy").addEventListener("click", () => copyOutput().catch((e) => log(e.message)));
 $("collectFingerprint").addEventListener("click", () => collectFingerprint().catch((e) => log(e.message)));

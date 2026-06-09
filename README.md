@@ -25,6 +25,7 @@
 - 默认“exclusive”导出：只保留刷新成功的凭证。
 - 支持标准 CPA auth 数组导出。
 - 单账号导出打包为 ZIP；推荐用于 CLIProxyAPI `auths/` 目录。刷新后 ZIP 只含刷新成功的新凭证，原始 ZIP 只做备份。
+- 正常凭证 ZIP 导出：按刷新结果/导入字段筛掉 401、402、需要重新登录、明确无额度的凭证；429 只视为限速，不当异常。
 - `NV CTF / #jshook 000` 授权标识展示。
 - `/api/fingerprint`：记录请求该接口的客户端 headers，适合让 Codex/Claude CLI 主动访问以获取真实 CLI UA/headers。
 - `/proxy?target=...`：诊断代理，转发请求并在内存里记录请求/响应 headers 与脱敏 body 摘要。
@@ -232,6 +233,18 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-aut
 ```
 
 捕获记录保存在服务内存中，重启即清空。
+
+## 正常凭证筛选导出
+
+“下载正常凭证ZIP”会从当前导入内容和最近一次刷新结果里筛选可继续使用的凭证：
+
+- 保留：刷新成功的凭证、没有异常标记且有 AT/RT 的导入凭证。
+- 保留：`429` / `rate_limited`，它只代表限速，本工具不把它当成需要重登的异常。
+- 排除：`401`、`402`、`app_session_terminated`、`refresh_token_reused`、`invalid_grant`、`invalid_client`、登录/重登提示、billing/payment/明确无额度。
+- 排除：导入 JSON 明确给出 `quota_5h_remaining <= 0`，或 `quota_5h_used >= quota_5h_limit`。
+- 没有 quota 字段时不强行判死刑；只按 token、过期时间和最近刷新错误筛。
+
+刷新后再点这个按钮时，刷新成功账号会优先导出新 CPA；429 这类限速账号会保留原始 CPA。
 
 ## 在线 Codex 登录 / OAuth 回调
 

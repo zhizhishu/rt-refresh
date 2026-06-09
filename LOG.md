@@ -89,3 +89,10 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Added imported credential details panel with AT remaining time and 5-hour quota/window display.
 - Validated syntax, npm tests, OAuth mock smoke, GHCR manifest, and pulled-image smoke.
 - Pushed commit `a3de128` and GHCR images `latest` / `a3de128`; digest `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`.
+
+
+## 2026-06-09T04:48:42Z - Normal credential ZIP export
+
+- Added `下载正常凭证ZIP` button. It filters current imported credentials plus the latest refresh result.
+- Excludes 401/402, re-login/session-ended/reused/invalid-grant style errors, billing/payment, and explicit no-quota fields; keeps 429/rate-limited as non-abnormal throttling.
+- Validation passed: `node --check public/app.js`, `node --check src/server.js`, `npm test` 10/10, and local HTTP smoke for button/handler/429 rule.

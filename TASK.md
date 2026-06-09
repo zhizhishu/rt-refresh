@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-08T15:37:01Z
+last_updated: 2026-06-09T04:48:42Z
 
 ## Current Goal
 
@@ -57,6 +57,11 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - `ghcr.io/zhizhishu/rt-refresh:a3de128`
 - `latest` digest: `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`.
 
+- Added normal-credential ZIP export button:
+  - Excludes 401, 402, re-login/session-ended/reused/invalid-grant style errors, billing/payment, and explicit no-quota fields.
+  - Keeps 429/rate-limited rows because they are treated as throttling rather than credential abnormality.
+  - Uses refreshed canonical CPA for successful rows and original imported CPA for retained non-refreshed rows.
+
 ## Validation
 
 - `npm test` passed: 10/10 tests.
@@ -81,6 +86,12 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - OAuth mock smoke passed for `/api/oauth/start`, `/oauth/callback`, `/api/oauth/latest`, `/api/oauth/download/latest`, and UI panel presence.
   - GHCR pulled-image smoke passed for `/api/config`, OAuth panel, quota panel, `/api/oauth/start`, and `/api/captures`.
   - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`; digest `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`.
+
+- Normal credential export validation:
+  - `node --check public/app.js` passed.
+  - `node --check src/server.js` passed.
+  - `npm test` passed: 10/10 tests.
+  - Local HTTP smoke confirmed `下载正常凭证ZIP` button, handler binding, and 429-not-abnormal rule are present.
 
 ## Server Update Command
 
