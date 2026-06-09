@@ -222,12 +222,12 @@
       <section class="panel output-panel">
         <div class="panel-head">
           <div>
-            <h2>3. 导出 CPA / CLIProxy 凭证</h2>
-            <p>“导出 CPA 凭证ZIP”会输出可放进 CLIProxyAPI auths 的 Codex auth JSON；Sub2API/原始结构只作为备份入口。只有上游返回新 RT 时，旧 RT 才可能被服务端废弃。</p>
+            <h2>3. 导出 CPA JSON / CLIProxy 凭证</h2>
+            <p>“导出 CPA JSON（Sub2API转换）”会把导入的 Sub2API <code>credentials</code> 包装转换成 CPA/Codex auth 数组；刷新成功项优先用新 token，未刷新项也转换保留。Sub2API/原始结构只作为备份入口。</p>
           </div>
           <div class="actions compact">
             <button id="copy" class="ghost">复制</button>
-            <button id="exportCpaCredentials">导出 CPA 凭证ZIP</button><button id="download">下载合并JSON</button><button id="downloadEachRefreshed">下载刷新后 CLIProxy ZIP</button><button id="downloadNormalCredentials">下载正常 CLIProxy ZIP</button><button id="downloadEachImported" class="ghost">下载原始/Sub备份ZIP</button>
+            <button id="exportConvertedCpaJson">导出 CPA JSON（Sub2API转换）</button><button id="exportCpaCredentials">导出 CPA 凭证ZIP</button><button id="download">下载合并JSON</button><button id="downloadEachRefreshed">下载刷新后 CLIProxy ZIP</button><button id="downloadNormalCredentials">下载正常 CLIProxy ZIP</button><button id="downloadEachImported" class="ghost">下载原始/Sub备份ZIP</button>
           </div>
         </div>
         <pre id="log" class="log"></pre>

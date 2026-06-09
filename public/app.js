@@ -1170,6 +1170,41 @@ function toCliProxyCredential(entry, index = 0) {
   return out;
 }
 
+function refreshedCanonicalByIndex() {
+  const out = new Map();
+  if (!lastRefreshResult?.canonical?.length) return out;
+  const okResults = lastRefreshResult.results.filter((r) => r.ok);
+  lastRefreshResult.canonical.forEach((item, i) => {
+    const result = okResults[i];
+    if (result) out.set(result.index, item);
+  });
+  return out;
+}
+
+function convertedCpaJsonFromCurrentInput() {
+  const docs = currentImportedDocs();
+  const refreshed = refreshedCanonicalByIndex();
+  return docs.map((doc, i) => {
+    const refreshedItem = refreshed.get(i);
+    return refreshedItem ? { ...canonicalMetadataFromEntry(doc), ...refreshedItem } : toCliProxyCredential(doc, i);
+  });
+}
+
+function exportConvertedCpaJson() {
+  let items;
+  try {
+    items = convertedCpaJsonFromCurrentInput();
+  } catch (err) {
+    return log(`当前输入无法转换成 CPA JSON：${err.message}`);
+  }
+  if (!items.length) return log("没有导入内容，无法导出 CPA JSON。");
+  const text = pretty(items);
+  $("output").value = text;
+  clickDownload(text, `rt-refresh-sub2api-to-cpa-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+  const refreshedCount = refreshedCanonicalByIndex().size;
+  log(`已导出 ${items.length} 条 Sub2API→CPA/Codex auth JSON；刷新成功项优先使用新 token：${refreshedCount} 条，其余已转换保留。`);
+}
+
 function downloadNormalCredentials() {
   let docs;
   try {
@@ -1179,22 +1214,15 @@ function downloadNormalCredentials() {
   }
   if (!docs.length) return log("没有导入内容，无法筛选正常凭证。");
 
-  const okByIndex = new Map();
-  if (lastRefreshResult?.canonical?.length) {
-    const okResults = lastRefreshResult.results.filter((r) => r.ok);
-    lastRefreshResult.canonical.forEach((item, i) => {
-      const result = okResults[i];
-      if (result) okByIndex.set(result.index, { value: item, result });
-    });
-  }
+  const okByIndex = refreshedCanonicalByIndex();
 
   const items = [];
   const rejected = [];
   const resultByIndex = new Map((lastRefreshResult?.results || []).map((r) => [r.index, r]));
   docs.forEach((doc, i) => {
     const refreshed = okByIndex.get(i);
-    const value = refreshed?.value ? { ...canonicalMetadataFromEntry(doc), ...refreshed.value } : toCliProxyCredential(doc, i);
-    const result = refreshed?.result || resultByIndex.get(i) || null;
+    const value = refreshed ? { ...canonicalMetadataFromEntry(doc), ...refreshed } : toCliProxyCredential(doc, i);
+    const result = resultByIndex.get(i) || null;
     const cls = classifyNormalCredential(value, result);
     const source = importedSourceNames[i] || candidateNameFromEntry(value) || candidateNameFromEntry(doc) || `codex-${i + 1}`;
     if (cls.normal) items.push({ name: source, value });
@@ -1238,6 +1266,7 @@ $("invertSelection").addEventListener("click", () => {
   selectItems(currentEntries, "invert");
 });
 $("download").addEventListener("click", download);
+$("exportConvertedCpaJson").addEventListener("click", exportConvertedCpaJson);
 $("exportCpaCredentials").addEventListener("click", downloadNormalCredentials);
 $("downloadEachRefreshed").addEventListener("click", downloadEachRefreshed);
 $("downloadNormalCredentials").addEventListener("click", downloadNormalCredentials);

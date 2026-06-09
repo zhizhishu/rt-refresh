@@ -118,3 +118,10 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Added a visible `导出 CPA 凭证ZIP` button in the export panel.
 - The new button calls the same CLIProxy/Codex normal credential ZIP export path as `下载正常 CLIProxy ZIP`, so users do not need to infer that CPA credential export is hidden behind CLIProxy wording.
 - Validation: `node --check public/app.js`, `npm test` 11/11, and local HTTP smoke confirmed button presence and binding.
+
+## 2026-06-09T06:21:18Z - Sub2API to CPA JSON export
+
+- Added a visible `导出 CPA JSON（Sub2API转换）` button in the export panel.
+- The new path exports one JSON file containing a CPA/Codex auth array converted from the current imported Sub2API/wrapped input.
+- Refresh-success rows prefer the refreshed canonical token data; unrefreshed/failed rows are still converted via the imported credentials and retained.
+- Validation: `node --check public/app.js`, `npm test` 11/11, local HTTP smoke for button/binding/function, and code check for the unrefreshed conversion branch.

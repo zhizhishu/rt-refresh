@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-09T06:05:24Z
+last_updated: 2026-06-09T06:21:18Z
 
 ## Current Goal
 
@@ -8,6 +8,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Done
 
+- Added explicit single-file `导出 CPA JSON（Sub2API转换）` button that converts current Sub2API/wrapped input into CPA/Codex auth JSON array; refreshed successes use new tokens, unrefreshed rows are converted and retained.
 - Added explicit `导出 CPA 凭证ZIP` button bound to the CLIProxy/Codex normal credential ZIP export path.
 - Added 30-per-page paginated, collapsible account overview and imported credential/5h-window panels with page/global selection controls.
 - Added weekly quota display for `quota_weekly_*`, `quota_7d_*`, `weekly_quota_*`, and `weekly.*` fields without removing 5h quota display.
@@ -75,6 +76,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Validation
 
+- Local HTTP smoke confirmed `导出 CPA JSON（Sub2API转换）` button, event binding, conversion function, and unrefreshed-row conversion branch.
 - Local HTTP smoke confirmed `导出 CPA 凭证ZIP` is present and bound to `downloadNormalCredentials`.
 - `node --check public/app.js` passed after pagination/export changes.
 - `node --check src/cpa.js` passed after canonical metadata preservation.
