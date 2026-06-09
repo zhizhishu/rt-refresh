@@ -188,7 +188,7 @@
           <p class="hint">保守模式按参考项目思路：串行刷新、间隔请求、临时错误指数退避；`invalid_grant` / `refresh_token_reused` 这类不可重试错误不会硬刷。</p>
           <div class="toggles">
             <label><input id="exclusive" type="checkbox" checked /> 只导出刷新成功的凭证</label>
-            <label><input id="canonical" type="checkbox" /> 导出标准 CPA auth 数组</label>
+            <label><input id="canonical" type="checkbox" checked /> 输出框使用 CLIProxyAPI/Codex auth 数组</label>
           </div>
           <button id="refresh" class="primary">刷新 RT 并生成导出</button>
         </article>
@@ -216,18 +216,18 @@
             <button id="toggleRawCredentials" class="ghost">显示原文凭证</button>
           </div>
         </div>
-        <div id="credentialDetails" class="credential-grid"></div>
+        <div id="credentialDetails" class="credential-details"></div>
       </section>
 
       <section class="panel output-panel">
         <div class="panel-head">
           <div>
             <h2>3. 导出 CPA JSON</h2>
-            <p>先点“刷新 RT 并生成导出”。单账号导出会打包成 ZIP：刷新后 ZIP 只含成功刷新出的新凭证；原始 ZIP 只是备份旧文件。只有上游返回新 RT 时，旧 RT 才可能被服务端废弃。</p>
+            <p>先点“刷新 RT 并生成导出”。默认导出 CLIProxyAPI/Codex auth JSON；Sub2API/原始结构只作为备份入口。只有上游返回新 RT 时，旧 RT 才可能被服务端废弃。</p>
           </div>
           <div class="actions compact">
             <button id="copy" class="ghost">复制</button>
-            <button id="download">下载合并JSON</button><button id="downloadEachRefreshed">下载刷新后ZIP</button><button id="downloadNormalCredentials">下载正常凭证ZIP</button><button id="downloadEachImported" class="ghost">下载原始ZIP</button>
+            <button id="download">下载合并JSON</button><button id="downloadEachRefreshed">下载刷新后 CLIProxy ZIP</button><button id="downloadNormalCredentials">下载正常 CLIProxy ZIP</button><button id="downloadEachImported" class="ghost">下载原始/Sub备份ZIP</button>
           </div>
         </div>
         <pre id="log" class="log"></pre>

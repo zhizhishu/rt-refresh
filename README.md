@@ -15,17 +15,17 @@
 ## 功能
 
 - 支持多选/拖拽导入多个 CLIProxyAPI / sub2api / JSONL 形态的 CPA JSON，也支持一行一个 `rt...` raw RT。
-- 本地解析账号，显示 token 指纹，不直接展示密钥。
+- 本地解析账号，显示 token 指纹，不直接展示密钥；账号概览和凭证明细按 30 条分页，支持本页/全部选择与展开/折叠。
 - 导入凭证明细面板：显示来源文件、email/account/user/org/plan、AT/RT/ID 摘要或 CTF 原文、AT 剩余时间。
-- 5 小时窗口面板：优先展示导入 JSON 内的 `quota_5h_*` / `rate_limit_reset_at` 等字段；没有字段时按 `last_refresh + 5h` 做本地窗口估算。
+- 5 小时窗口面板：优先展示导入 JSON 内的 `quota_5h_*` / `rate_limit_reset_at` 等字段；没有字段时按 `last_refresh + 5h` 做本地窗口估算；同时保留并展示 `quota_weekly_*` / `quota_7d_*` 周限额字段。
 - 在线 Codex 登录：生成 Codex PKCE 登录链接，处理 `/oauth/callback`，回调成功后可从内存列表下载 CPA JSON。
 - 刷新失败会显示上游 OAuth 返回的真实错误，而不是 `[object Object]`。
 - 批量刷新 RT，支持保守串行、请求间隔、临时错误重试和指数退避。
 - 账号勾选支持全选可刷新、全不选、反选。
 - 默认“exclusive”导出：只保留刷新成功的凭证。
-- 支持标准 CPA auth 数组导出。
-- 单账号导出打包为 ZIP；推荐用于 CLIProxyAPI `auths/` 目录。刷新后 ZIP 只含刷新成功的新凭证，原始 ZIP 只做备份。
-- 正常凭证 ZIP 导出：按刷新结果/导入字段筛掉 401、402、需要重新登录、明确无额度的凭证；429 只视为限速，不当异常。
+- 默认导出 CLIProxyAPI/Codex auth 数组，避免把 Sub2API `credentials` 包装误当成可直接放入 CLIProxyAPI `auths/` 的文件。
+- 单账号导出打包为 ZIP；推荐用于 CLIProxyAPI `auths/` 目录。刷新后 ZIP 只含刷新成功的新凭证，原始/Sub ZIP 只做备份。
+- 正常凭证 ZIP 导出：按刷新结果/导入字段筛掉 401、402、需要重新登录、明确无额度的凭证；429 只视为限速，不当异常；输出统一为 CLIProxyAPI/Codex auth JSON。
 - 远程 CPA 一次性清洗/回导：连接 Sub2API/CPA 管理端，拉取账号数据，本地刷新筛选可用凭证，生成无效日志；只有勾选确认才回导。
 - `NV CTF / #jshook 000` 授权标识展示。
 - `/api/fingerprint`：记录请求该接口的客户端 headers，适合让 Codex/Claude CLI 主动访问以获取真实 CLI UA/headers。
@@ -269,7 +269,7 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-aut
 - 排除：导入 JSON 明确给出 `quota_5h_remaining <= 0`，或 `quota_5h_used >= quota_5h_limit`。
 - 没有 quota 字段时不强行判死刑；只按 token、过期时间和最近刷新错误筛。
 
-刷新后再点这个按钮时，刷新成功账号会优先导出新 CPA；429 这类限速账号会保留原始 CPA。
+刷新后再点这个按钮时，刷新成功账号会优先导出新 CLIProxyAPI/Codex auth；429 这类限速账号会保留并转换导入凭证为 CLIProxyAPI/Codex auth。原始 Sub2API/导入结构只在“下载原始/Sub备份ZIP”里提供。
 
 ## 在线 Codex 登录 / OAuth 回调
 
@@ -306,6 +306,8 @@ GET  /api/oauth/download/:id
 - Token 展示：默认只显示长度和首尾摘要；点“显示原文凭证”后显示 AT/RT/ID 原文。
 - AT 剩余：从 `expires_at` / `expired` / `tokens.expires_at` 推算。
 - 5 小时窗口：优先读取 `quota_5h_limit`、`quota_5h_used`、`quota_5h_remaining`、`quota_5h_reset_at`、`rate_limit_reset_at`；没有这些字段时，用 `last_refresh` 到 `last_refresh + 5h` 估算。
+- 周限额：读取并展示 `quota_weekly_limit`、`quota_weekly_used`、`quota_weekly_remaining`、`quota_weekly_reset_at`，也兼容 `quota_7d_*`、`weekly_quota_*`、`weekly.*`。
+- 分页折叠：账号概览和凭证明细每页 30 条；可全选本页/全部可刷新账号，也可展开或折叠当前页。
 
 注意：本地估算不是上游实时额度查询；若 CTF 目标返回了真实 quota 字段，面板会优先显示那些字段。别把估算当圣旨，宝宝。
 

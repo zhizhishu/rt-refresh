@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-09T05:08:07Z
+last_updated: 2026-06-09T05:54:57Z
 
 ## Current Goal
 
@@ -8,6 +8,10 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Done
 
+- Added 30-per-page paginated, collapsible account overview and imported credential/5h-window panels with page/global selection controls.
+- Added weekly quota display for `quota_weekly_*`, `quota_7d_*`, `weekly_quota_*`, and `weekly.*` fields without removing 5h quota display.
+- Changed refreshed/normal ZIP export paths to produce CLIProxyAPI/Codex auth JSON; original/Sub2API shape remains only in the explicit original/Sub backup ZIP.
+- CLIProxy canonical export now preserves 5h and weekly quota metadata.
 - Implemented dependency-free Node.js API and static UI.
 - Supports multi-file import and per-account CPA JSON batch download.
 - Supports CLIProxyAPI auth JSON, sub2api `credentials`, arrays, `accounts/items/data`, JSONL, and pasted raw `rt...` lines.
@@ -70,6 +74,11 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Validation
 
+- `node --check public/app.js` passed after pagination/export changes.
+- `node --check src/cpa.js` passed after canonical metadata preservation.
+- `npm test` passed: 11/11 tests, including quota metadata preservation in CLIProxy canonical export.
+- Local HTTP smoke confirmed CLIProxy ZIP labels, canonical default checkbox, pagination controls, weekly quota strings, and CLIProxy normal export logic are served.
+- `git diff --check` passed; only Git CRLF conversion warnings were reported.
 - `npm test` passed: 10/10 tests.
 - `node --check public/app.js` passed.
 - `node --check src/server.js` passed.

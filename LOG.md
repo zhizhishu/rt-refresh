@@ -104,3 +104,11 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Added UI panel with CPA URL/key, auth mode, filters, require-RT toggle, write-back confirmation, and invalid-log download.
 - Invalid filtering drops 401/402/re-login/reused/invalid-grant/no-quota while retaining 429/rate-limited as throttling.
 - Validation passed: `node --check src/server.js`, `node --check public/app.js`, `npm test` 10/10, and local Sub2API/CPA mock smoke for pull/clean/write-back.
+
+## 2026-06-09T05:54:02Z - CLIProxy export and paginated quota panels
+
+- Added 30/page pagination, collapse/expand controls, and page/global selection controls to account overview plus imported credential/5h-window panels.
+- Added weekly quota parsing/display while preserving 5h quota behavior.
+- Fixed normal/refreshed credential ZIP paths so usable exports are CLIProxyAPI/Codex auth JSON, while original/Sub2API JSON is only an explicit backup export.
+- Preserved 5h and weekly quota metadata in canonical CLIProxy exports.
+- Validation: `node --check public/app.js`, `node --check src/cpa.js`, `npm test` 11/11, local HTTP smoke, and `git diff --check`.

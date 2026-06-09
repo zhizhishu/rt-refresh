@@ -197,25 +197,88 @@ button:disabled { opacity: .55; cursor: wait; transform: none; }
   border-radius: 18px;
 }
 .toggles input, .row input { width: auto; margin: 0 8px 0 0; }
+.pick, .credential-pick { width: auto; margin: 3px 0 0; flex: 0 0 auto; }
 
 .entries {
+  display: block;
+  margin-top: 18px;
+}
+
+.entries-page {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 12px;
   margin-top: 18px;
 }
 
-.entry {
+.entry, .entry-detail {
   border: 1px solid var(--line);
   background: #fffaf0;
   border-radius: 20px;
   padding: 14px;
 }
-.entry b { display: block; word-break: break-all; margin-bottom: 8px; }
-.entry small { display: block; color: var(--muted); font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.entry-detail summary, .credential-card summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  list-style: none;
+}
+.entry-detail summary::-webkit-details-marker, .credential-card summary::-webkit-details-marker { display: none; }
+.entry-detail summary::after, .credential-card summary::after {
+  content: "展开";
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.entry-detail[open] summary::after, .credential-card[open] summary::after { content: "折叠"; }
+.entry-title { min-width: 0; flex: 1; }
+.entry-title b { display: block; word-break: break-all; margin-bottom: 4px; }
+.entry-title small, .entry small { display: block; color: var(--muted); font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.entry-extra {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 6px 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.entry-extra code { word-break: break-all; white-space: normal; }
+.overview-stats, .list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+.overview-stats span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: rgba(255, 250, 240, .72);
+  color: var(--muted);
+  font-size: 12px;
+}
+.list-toolbar {
+  padding: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  background: rgba(255, 250, 240, .52);
+}
+.list-toolbar span {
+  color: var(--muted);
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+  margin-right: auto;
+}
+.list-toolbar button { padding: 8px 11px; font-size: 12px; }
 .badge { display: inline-flex; margin: 8px 6px 0 0; padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); }
 .ok { color: #176b37; }
 .warn { color: var(--red); }
+
+.credential-details {
+  margin-top: 16px;
+}
 
 .credential-grid {
   display: grid;

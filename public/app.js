@@ -8,10 +8,15 @@ let lastDownloadObjectUrl = "";
 let lastOAuthStart = null;
 let rawCredentialsVisible = false;
 let lastRemoteCPAResult = null;
+const PAGE_SIZE = 30;
+let entryPage = 1;
+let credentialPage = 1;
+let lastCredentialItems = [];
 
 function updateSummary() {
   const refreshable = currentEntries.filter((e) => e.has_refresh_token).length;
-  $("summary").textContent = `共 ${currentEntries.length} 条，${refreshable} 条可刷新，当前选中 ${selected.size} 条。`;
+  const totalPages = Math.max(1, Math.ceil(currentEntries.length / PAGE_SIZE));
+  $("summary").textContent = `共 ${currentEntries.length} 条，${refreshable} 条可刷新，当前选中 ${selected.size} 条。每页 ${PAGE_SIZE} 条，第 ${Math.min(entryPage, totalPages)}/${totalPages} 页。`;
 }
 
 function log(line) {
@@ -20,6 +25,71 @@ function log(line) {
 
 function pretty(obj) {
   return JSON.stringify(obj, null, 2);
+}
+
+function pageInfo(total, page) {
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const current = Math.max(1, Math.min(Number(page) || 1, totalPages));
+  const start = total ? (current - 1) * PAGE_SIZE : 0;
+  const end = total ? Math.min(start + PAGE_SIZE, total) : 0;
+  return { page: current, totalPages, start, end };
+}
+
+function renderPager(kind, total, page, { selectable = false } = {}) {
+  const info = pageInfo(total, page);
+  const dataAttr = kind === "credential" ? "data-credential-action" : "data-overview-action";
+  const selectionControls = selectable ? `
+    <button class="ghost" ${dataAttr}="select-page">全选本页可刷新</button>
+    <button class="ghost" ${dataAttr}="select-all">全选全部可刷新</button>
+    <button class="ghost" ${dataAttr}="select-none">全不选</button>
+    <button class="ghost" ${dataAttr}="invert-page">反选本页</button>
+  ` : "";
+  return `
+    <div class="list-toolbar" data-pager="${kind}">
+      <span>第 ${info.page}/${info.totalPages} 页 · 每页 ${PAGE_SIZE} · 显示 ${total ? `${info.start + 1}-${info.end}` : "0"} / ${total}</span>
+      <button class="ghost" ${dataAttr}="first" ${info.page <= 1 ? "disabled" : ""}>首页</button>
+      <button class="ghost" ${dataAttr}="prev" ${info.page <= 1 ? "disabled" : ""}>上一页</button>
+      <button class="ghost" ${dataAttr}="next" ${info.page >= info.totalPages ? "disabled" : ""}>下一页</button>
+      <button class="ghost" ${dataAttr}="last" ${info.page >= info.totalPages ? "disabled" : ""}>末页</button>
+      ${selectionControls}
+      <button class="ghost" ${dataAttr}="expand-page">展开本页</button>
+      <button class="ghost" ${dataAttr}="collapse-page">折叠本页</button>
+    </div>`;
+}
+
+function currentPageItems(items, page) {
+  const info = pageInfo(items.length, page);
+  return { ...info, items: items.slice(info.start, info.end) };
+}
+
+function syncSelectionControls() {
+  document.querySelectorAll(".pick, .credential-pick").forEach((box) => {
+    const idx = Number(box.dataset.index);
+    box.checked = selected.has(idx);
+  });
+  updateSummary();
+}
+
+function selectItems(items, mode) {
+  if (mode === "none") {
+    selected.clear();
+    syncSelectionControls();
+    return;
+  }
+  for (const item of items) {
+    const idx = Number(item.index);
+    const canRefresh = Boolean(item.has_refresh_token ?? item.refresh);
+    if (!canRefresh) continue;
+    if (mode === "select") selected.add(idx);
+    if (mode === "invert") {
+      if (selected.has(idx)) selected.delete(idx); else selected.add(idx);
+    }
+  }
+  syncSelectionControls();
+}
+
+function setDetailsOpen(container, open) {
+  container.querySelectorAll("details").forEach((el) => { el.open = open; });
 }
 
 async function sha256Text(text) {
@@ -300,25 +370,94 @@ async function loadConfig() {
 function renderEntries(entries) {
   currentEntries = entries;
   selected = new Set(entries.filter((e) => e.has_refresh_token).map((e) => e.index));
+  entryPage = 1;
+  renderEntryPage();
+}
+
+function accountOverviewStats() {
+  const refreshable = currentEntries.filter((e) => e.has_refresh_token).length;
+  const withAccess = currentEntries.filter((e) => e.has_access_token).length;
+  const withId = currentEntries.filter((e) => e.has_id_token).length;
+  const planCounts = new Map();
+  for (const e of currentEntries) {
+    if (!e.plan_type) continue;
+    planCounts.set(e.plan_type, (planCounts.get(e.plan_type) || 0) + 1);
+  }
+  const credentialItems = getCredentialItemsFromInput();
+  const quota5hKnown = credentialItems.filter((item) => item.quota.hasAny).length;
+  const quotaWeekKnown = credentialItems.filter((item) => item.weekly.hasAny).length;
+  const planText = [...planCounts.entries()].slice(0, 5).map(([k, v]) => `${k}:${v}`).join(" · ") || "unknown";
+  return `
+    <div class="overview-stats">
+      <span>可刷新 ${refreshable}/${currentEntries.length}</span>
+      <span>AT ${withAccess}</span>
+      <span>ID ${withId}</span>
+      <span>5h 字段 ${quota5hKnown}</span>
+      <span>周限额字段 ${quotaWeekKnown}</span>
+      <span>plan ${escapeHTML(planText)}</span>
+    </div>`;
+}
+
+function renderEntryPage() {
   updateSummary();
-  $("entries").innerHTML = entries.map((e) => `
-    <label class="entry">
-      <input type="checkbox" class="pick" data-index="${e.index}" ${selected.has(e.index) ? "checked" : ""} ${e.has_refresh_token ? "" : "disabled"} />
-      <b>${escapeHTML(e.label)}</b>
-      <small>AT# ${e.access_fingerprint || "none"}</small>
-      <small>RT# ${e.refresh_fingerprint || "none"}</small>
-      <small>src ${escapeHTML(importedSourceNames[e.index] || `#${e.index + 1}`)}</small>
-      <small>exp ${escapeHTML(e.expires_at || "unknown")}</small>
-      <span class="badge ${e.has_refresh_token ? "ok" : "warn"}">${e.has_refresh_token ? "RT OK" : "NO RT"}</span>
-      ${e.plan_type ? `<span class="badge">${escapeHTML(e.plan_type)}</span>` : ""}
-    </label>`).join("");
-  document.querySelectorAll(".pick").forEach((box) => {
+  const target = $("entries");
+  if (!currentEntries.length) {
+    target.innerHTML = `<div class="hint">还没解析。宝宝，别指望空 JSON 自己分页。</div>`;
+    return;
+  }
+  const page = currentPageItems(currentEntries, entryPage);
+  entryPage = page.page;
+  target.innerHTML = `
+    ${accountOverviewStats()}
+    ${renderPager("overview", currentEntries.length, entryPage, { selectable: true })}
+    <div class="entries-page">
+      ${page.items.map((e) => `
+        <details class="entry-detail">
+          <summary>
+            <input type="checkbox" class="pick" data-index="${e.index}" ${selected.has(e.index) ? "checked" : ""} ${e.has_refresh_token ? "" : "disabled"} />
+            <span class="entry-title"><b>${escapeHTML(e.label)}</b><small>src ${escapeHTML(importedSourceNames[e.index] || `#${e.index + 1}`)}</small></span>
+            <span class="badge ${e.has_refresh_token ? "ok" : "warn"}">${e.has_refresh_token ? "RT OK" : "NO RT"}</span>
+            ${e.plan_type ? `<span class="badge">${escapeHTML(e.plan_type)}</span>` : ""}
+          </summary>
+          <div class="entry-extra">
+            <span>AT#</span><code>${escapeHTML(e.access_fingerprint || "none")}</code>
+            <span>RT#</span><code>${escapeHTML(e.refresh_fingerprint || "none")}</code>
+            <span>email</span><code>${escapeHTML(e.email || "unknown")}</code>
+            <span>account</span><code>${escapeHTML(e.account_id || "unknown")}</code>
+            <span>user</span><code>${escapeHTML(e.user_id || "unknown")}</code>
+            <span>org</span><code>${escapeHTML(e.organization_id || "unknown")}</code>
+            <span>expires</span><code>${escapeHTML(e.expires_at || "unknown")}</code>
+            <span>warnings</span><code>${escapeHTML((e.warnings || []).join(", ") || "none")}</code>
+          </div>
+        </details>`).join("")}
+    </div>
+    ${renderPager("overview", currentEntries.length, entryPage, { selectable: true })}`;
+  target.querySelectorAll(".pick").forEach((box) => {
+    box.addEventListener("click", (ev) => ev.stopPropagation());
     box.addEventListener("change", () => {
       const idx = Number(box.dataset.index);
       if (box.checked) selected.add(idx); else selected.delete(idx);
-      updateSummary();
+      syncSelectionControls();
     });
   });
+  target.querySelectorAll("[data-overview-action]").forEach((button) => {
+    button.addEventListener("click", () => handleOverviewAction(button.dataset.overviewAction, target));
+  });
+}
+
+function handleOverviewAction(action, target) {
+  const page = currentPageItems(currentEntries, entryPage);
+  if (action === "first") entryPage = 1;
+  if (action === "prev") entryPage = Math.max(1, entryPage - 1);
+  if (action === "next") entryPage = Math.min(page.totalPages, entryPage + 1);
+  if (action === "last") entryPage = page.totalPages;
+  if (action === "select-page") return selectItems(page.items, "select");
+  if (action === "select-all") return selectItems(currentEntries, "select");
+  if (action === "select-none") return selectItems(currentEntries, "none");
+  if (action === "invert-page") return selectItems(page.items, "invert");
+  if (action === "expand-page") return setDetailsOpen(target, true);
+  if (action === "collapse-page") return setDetailsOpen(target, false);
+  renderEntryPage();
 }
 
 
@@ -470,10 +609,14 @@ function download() {
 function downloadEachRefreshed() {
   if (lastRefreshResult?.canonical?.length) {
     const okResults = lastRefreshResult.results.filter((r) => r.ok);
+    let docs = [];
+    try { docs = currentImportedDocs(); } catch {}
     const items = lastRefreshResult.canonical.map((item, i) => {
       const result = okResults[i] || {};
+      const original = docs[result.index];
+      const value = original ? { ...canonicalMetadataFromEntry(original), ...item } : item;
       const source = importedSourceNames[result.index] || result.label || candidateNameFromEntry(item) || `codex-${i + 1}`;
-      return { name: source, value: item };
+      return { name: source, value };
     });
     const count = downloadJsonZip(items, `rt-refresh-refreshed-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`, "codex");
     log(`已打包 ${count} 个刷新后单账号 JSON 到 ZIP，并生成备用下载链接。文件名按 CPA 原始文件名/账号名扁平化。`);
@@ -529,6 +672,8 @@ const credentialPaths = {
   id: [["credentials", "id_token"], ["tokens", "id_token"], ["token_data", "id_token"], ["id_token"], ["idToken"]],
   expires: [["credentials", "expires_at"], ["tokens", "expires_at"], ["token_data", "expired"], ["expired"], ["expires_at"], ["expiresAt"]],
   lastRefresh: [["last_refresh"], ["lastRefresh"], ["credentials", "last_refresh"], ["tokens", "last_refresh"], ["token_data", "last_refresh"]],
+  client: [["credentials", "client_id"], ["client_id"], ["clientId"]],
+  scope: [["credentials", "scope"], ["tokens", "scope"], ["scope"]],
   email: [["credentials", "email"], ["email"], ["user", "email"], ["profile", "email"]],
   account: [["credentials", "chatgpt_account_id"], ["chatgpt_account_id"], ["chatgptAccountId"], ["account_id"], ["accountId"], ["token_data", "account_id"], ["account", "id"]],
   user: [["credentials", "chatgpt_user_id"], ["chatgpt_user_id"], ["chatgptUserId"], ["user_id"], ["user", "id"]],
@@ -538,6 +683,10 @@ const credentialPaths = {
   quotaUsed: [["quota_5h_used"], ["quota5hUsed"], ["usage", "quota_5h_used"], ["quota", "used"]],
   quotaRemaining: [["quota_5h_remaining"], ["quota5hRemaining"], ["usage", "quota_5h_remaining"], ["quota", "remaining"]],
   quotaReset: [["quota_5h_reset_at"], ["quota5hResetAt"], ["rate_limit_reset_at"], ["rateLimitResetAt"], ["usage", "quota_5h_reset_at"], ["quota", "reset_at"], ["quota", "resetAt"]],
+  weeklyLimit: [["quota_weekly_limit"], ["quota_7d_limit"], ["weekly_quota_limit"], ["quotaWeeklyLimit"], ["usage", "quota_weekly_limit"], ["usage", "quota_7d_limit"], ["quota", "weekly_limit"], ["quota", "weeklyLimit"], ["weekly", "limit"]],
+  weeklyUsed: [["quota_weekly_used"], ["quota_7d_used"], ["weekly_quota_used"], ["quotaWeeklyUsed"], ["usage", "quota_weekly_used"], ["usage", "quota_7d_used"], ["quota", "weekly_used"], ["quota", "weeklyUsed"], ["weekly", "used"]],
+  weeklyRemaining: [["quota_weekly_remaining"], ["quota_7d_remaining"], ["weekly_quota_remaining"], ["quotaWeeklyRemaining"], ["usage", "quota_weekly_remaining"], ["usage", "quota_7d_remaining"], ["quota", "weekly_remaining"], ["quota", "weeklyRemaining"], ["weekly", "remaining"]],
+  weeklyReset: [["quota_weekly_reset_at"], ["quota_7d_reset_at"], ["weekly_quota_reset_at"], ["quotaWeeklyResetAt"], ["usage", "quota_weekly_reset_at"], ["usage", "quota_7d_reset_at"], ["quota", "weekly_reset_at"], ["quota", "weeklyResetAt"], ["weekly", "reset_at"], ["weekly", "resetAt"]],
   status: [["status"], ["status_code"], ["statusCode"], ["http_status"], ["httpStatus"], ["error", "status"], ["last_error", "status"]],
   code: [["code"], ["error_code"], ["errorCode"], ["error", "code"], ["last_error", "code"], ["last_error_code"]],
   error: [["error"], ["message"], ["error_message"], ["errorMessage"], ["last_error"], ["lastError"], ["last_error", "message"]],
@@ -558,6 +707,12 @@ function firstAny(obj, paths) {
     if (v !== undefined && v !== null && String(v).trim() !== "") return v;
   }
   return "";
+}
+
+function finiteNumber(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function parseJWT(token) {
@@ -618,14 +773,24 @@ function deriveCredential(entry, index) {
   const org = firstAny(entry, credentialPaths.org) || auth.poid || (Array.isArray(auth.organizations) && auth.organizations[0]?.id) || "";
   const plan = firstAny(entry, credentialPaths.plan) || auth.chatgpt_plan_type || "";
   const label = candidateNameFromEntry(entry) || email || account || `entry-${index + 1}`;
-  const expiresAt = asDateMs(firstAny(entry, credentialPaths.expires));
-  const lastRefreshAt = asDateMs(firstAny(entry, credentialPaths.lastRefresh));
-  const quotaResetAt = asDateMs(firstAny(entry, credentialPaths.quotaReset));
+  const expiresRaw = firstAny(entry, credentialPaths.expires);
+  const lastRefreshRaw = firstAny(entry, credentialPaths.lastRefresh);
+  const quotaResetRaw = firstAny(entry, credentialPaths.quotaReset);
+  const weeklyResetRaw = firstAny(entry, credentialPaths.weeklyReset);
+  const expiresAt = asDateMs(expiresRaw);
+  const lastRefreshAt = asDateMs(lastRefreshRaw);
+  const quotaResetAt = asDateMs(quotaResetRaw);
+  const weeklyResetAt = asDateMs(weeklyResetRaw);
   const windowStart = Number.isFinite(lastRefreshAt) ? lastRefreshAt : Date.now();
   const resetAt = Number.isFinite(quotaResetAt) ? quotaResetAt : windowStart + 5 * 60 * 60 * 1000;
-  const remaining = Number(firstAny(entry, credentialPaths.quotaRemaining));
-  const limit = Number(firstAny(entry, credentialPaths.quotaLimit));
-  const used = Number(firstAny(entry, credentialPaths.quotaUsed));
+  const remaining = finiteNumber(firstAny(entry, credentialPaths.quotaRemaining));
+  const limit = finiteNumber(firstAny(entry, credentialPaths.quotaLimit));
+  const used = finiteNumber(firstAny(entry, credentialPaths.quotaUsed));
+  const weeklyRemaining = finiteNumber(firstAny(entry, credentialPaths.weeklyRemaining));
+  const weeklyLimit = finiteNumber(firstAny(entry, credentialPaths.weeklyLimit));
+  const weeklyUsed = finiteNumber(firstAny(entry, credentialPaths.weeklyUsed));
+  const quotaHasAny = Number.isFinite(quotaResetAt) || limit !== null || used !== null || remaining !== null;
+  const weeklyHasAny = Number.isFinite(weeklyResetAt) || weeklyLimit !== null || weeklyUsed !== null || weeklyRemaining !== null;
   return {
     index,
     label,
@@ -639,15 +804,27 @@ function deriveCredential(entry, index) {
     org,
     plan,
     expiresAt,
+    expiresRaw,
+    lastRefreshRaw,
     atRemainingMs: Number.isFinite(expiresAt) ? expiresAt - Date.now() : NaN,
     windowStart,
     resetAt,
     windowRemainingMs: resetAt - Date.now(),
     quota: {
-      limit: Number.isFinite(limit) ? limit : null,
-      used: Number.isFinite(used) ? used : null,
-      remaining: Number.isFinite(remaining) ? remaining : null,
-      source: Number.isFinite(quotaResetAt) || Number.isFinite(limit) || Number.isFinite(used) || Number.isFinite(remaining) ? "导入字段" : "本地5小时窗口估算",
+      limit,
+      used,
+      remaining,
+      resetAt: Number.isFinite(quotaResetAt) ? quotaResetAt : null,
+      hasAny: quotaHasAny,
+      source: quotaHasAny ? "导入字段" : "本地5小时窗口估算",
+    },
+    weekly: {
+      limit: weeklyLimit,
+      used: weeklyUsed,
+      remaining: weeklyRemaining,
+      resetAt: Number.isFinite(weeklyResetAt) ? weeklyResetAt : null,
+      hasAny: weeklyHasAny,
+      source: weeklyHasAny ? "导入字段" : "未提供",
     },
   };
 }
@@ -659,29 +836,43 @@ function quotaClass(ms) {
   return "ok";
 }
 
-function renderCredentialDetails(shouldLog = true) {
+function getCredentialItemsFromInput() {
   const input = $("input").value.trim();
-  const target = $("credentialDetails");
-  if (!input) {
-    target.innerHTML = `<div class="hint">还没导入凭证。宝宝，空页面不会自己长账号出来。</div>`;
-    if (shouldLog) log("没有导入内容，无法显示凭证明细。");
-    return;
-  }
-  let docs;
-  try {
-    docs = flattenClientInput(parseCredentialText(input));
-  } catch (err) {
-    target.innerHTML = `<div class="hint">解析失败：${escapeHTML(err.message)}</div>`;
-    if (shouldLog) log(`凭证明细解析失败：${err.message}`);
-    return;
-  }
-  const items = docs.map(deriveCredential);
-  target.innerHTML = items.map((item) => `
-    <article class="credential-card">
-      <header>
-        <h3>${escapeHTML(item.label)}</h3>
-        <span class="badge ${item.refresh ? "ok" : "warn"}">${item.refresh ? "RT" : "NO RT"}</span>
-      </header>
+  if (!input) return [];
+  return flattenClientInput(parseCredentialText(input)).map(deriveCredential);
+}
+
+function credentialStats(items) {
+  const withRT = items.filter((item) => item.refresh).length;
+  const withAT = items.filter((item) => item.access).length;
+  const atAlive = items.filter((item) => Number.isFinite(item.atRemainingMs) && item.atRemainingMs > 0).length;
+  const quota5hKnown = items.filter((item) => item.quota.hasAny).length;
+  const weeklyKnown = items.filter((item) => item.weekly.hasAny).length;
+  const weeklyNoQuota = items.filter((item) => item.weekly.remaining !== null && item.weekly.remaining <= 0).length;
+  return `
+    <div class="overview-stats credential-stats">
+      <span>RT ${withRT}/${items.length}</span>
+      <span>AT ${withAT}</span>
+      <span>AT 未过期 ${atAlive}</span>
+      <span>5h 字段 ${quota5hKnown}</span>
+      <span>周限额字段 ${weeklyKnown}</span>
+      <span>周剩余≤0 ${weeklyNoQuota}</span>
+    </div>`;
+}
+
+function renderCredentialCard(item) {
+  const canRefresh = Boolean(item.refresh);
+  return `
+    <details class="credential-card">
+      <summary>
+        <input type="checkbox" class="credential-pick" data-index="${item.index}" ${selected.has(item.index) ? "checked" : ""} ${canRefresh ? "" : "disabled"} />
+        <span class="entry-title">
+          <b>${escapeHTML(item.label)}</b>
+          <small>${escapeHTML(item.email || item.source || "unknown")}</small>
+        </span>
+        <span class="badge ${canRefresh ? "ok" : "warn"}">${canRefresh ? "RT" : "NO RT"}</span>
+        ${item.weekly.hasAny ? `<span class="badge">周限额</span>` : ""}
+      </summary>
       <div class="meta">
         <span>source</span><code>${escapeHTML(item.source)}</code>
         <span>email</span><code>${escapeHTML(item.email || "unknown")}</code>
@@ -702,9 +893,73 @@ function renderCredentialDetails(shouldLog = true) {
         ${item.quota.limit != null ? `<span class="quota-pill">limit ${escapeHTML(item.quota.limit)}</span>` : ""}
         ${item.quota.used != null ? `<span class="quota-pill warn">used ${escapeHTML(item.quota.used)}</span>` : ""}
       </div>
-    </article>
-  `).join("");
-  if (shouldLog) log(`已显示 ${items.length} 条导入凭证；5 小时额度优先读导入字段，没有字段则本地估算窗口。`);
+      <div class="quota-row weekly-row">
+        <span class="quota-pill">周限额源：${escapeHTML(item.weekly.source)}</span>
+        ${item.weekly.resetAt != null ? `<span class="quota-pill ${quotaClass(item.weekly.resetAt - Date.now())}">week reset ${escapeHTML(formatDuration(item.weekly.resetAt - Date.now()))}</span>` : ""}
+        ${item.weekly.remaining != null ? `<span class="quota-pill ${item.weekly.remaining > 0 ? "ok" : "bad"}">week remaining ${escapeHTML(item.weekly.remaining)}</span>` : ""}
+        ${item.weekly.limit != null ? `<span class="quota-pill">week limit ${escapeHTML(item.weekly.limit)}</span>` : ""}
+        ${item.weekly.used != null ? `<span class="quota-pill warn">week used ${escapeHTML(item.weekly.used)}</span>` : ""}
+      </div>
+    </details>`;
+}
+
+function renderCredentialPage() {
+  const target = $("credentialDetails");
+  if (!lastCredentialItems.length) {
+    target.innerHTML = `<div class="hint">还没导入凭证。宝宝，空页面不会自己长账号出来。</div>`;
+    return;
+  }
+  const page = currentPageItems(lastCredentialItems, credentialPage);
+  credentialPage = page.page;
+  target.innerHTML = `
+    ${credentialStats(lastCredentialItems)}
+    ${renderPager("credential", lastCredentialItems.length, credentialPage, { selectable: true })}
+    <div class="credential-grid">${page.items.map(renderCredentialCard).join("")}</div>
+    ${renderPager("credential", lastCredentialItems.length, credentialPage, { selectable: true })}`;
+  target.querySelectorAll(".credential-pick").forEach((box) => {
+    box.addEventListener("click", (ev) => ev.stopPropagation());
+    box.addEventListener("change", () => {
+      const idx = Number(box.dataset.index);
+      if (box.checked) selected.add(idx); else selected.delete(idx);
+      syncSelectionControls();
+    });
+  });
+  target.querySelectorAll("[data-credential-action]").forEach((button) => {
+    button.addEventListener("click", () => handleCredentialAction(button.dataset.credentialAction, target));
+  });
+}
+
+function handleCredentialAction(action, target) {
+  const page = currentPageItems(lastCredentialItems, credentialPage);
+  if (action === "first") credentialPage = 1;
+  if (action === "prev") credentialPage = Math.max(1, credentialPage - 1);
+  if (action === "next") credentialPage = Math.min(page.totalPages, credentialPage + 1);
+  if (action === "last") credentialPage = page.totalPages;
+  if (action === "select-page") return selectItems(page.items, "select");
+  if (action === "select-all") return selectItems(lastCredentialItems, "select");
+  if (action === "select-none") return selectItems(lastCredentialItems, "none");
+  if (action === "invert-page") return selectItems(page.items, "invert");
+  if (action === "expand-page") return setDetailsOpen(target, true);
+  if (action === "collapse-page") return setDetailsOpen(target, false);
+  renderCredentialPage();
+}
+
+function renderCredentialDetails(shouldLog = true) {
+  const target = $("credentialDetails");
+  try {
+    lastCredentialItems = getCredentialItemsFromInput();
+  } catch (err) {
+    lastCredentialItems = [];
+    target.innerHTML = `<div class="hint">解析失败：${escapeHTML(err.message)}</div>`;
+    if (shouldLog) log(`凭证明细解析失败：${err.message}`);
+    return;
+  }
+  credentialPage = 1;
+  renderCredentialPage();
+  if (shouldLog) {
+    if (!lastCredentialItems.length) log("没有导入内容，无法显示凭证明细。");
+    else log(`已显示 ${lastCredentialItems.length} 条导入凭证；每页 ${PAGE_SIZE} 条，可展开/折叠，5 小时与周限额字段都会保留显示。`);
+  }
 }
 
 function toggleRawCredentials() {
@@ -836,11 +1091,11 @@ function explicitQuotaState(entry) {
   const remainingRaw = firstAny(entry, credentialPaths.quotaRemaining);
   const limitRaw = firstAny(entry, credentialPaths.quotaLimit);
   const usedRaw = firstAny(entry, credentialPaths.quotaUsed);
-  const remaining = remainingRaw === "" ? NaN : Number(remainingRaw);
-  const limit = limitRaw === "" ? NaN : Number(limitRaw);
-  const used = usedRaw === "" ? NaN : Number(usedRaw);
-  if (Number.isFinite(remaining)) return { known: true, hasQuota: remaining > 0, reason: `quota_remaining=${remaining}` };
-  if (Number.isFinite(limit) && Number.isFinite(used)) return { known: true, hasQuota: used < limit, reason: `quota_used=${used}/${limit}` };
+  const remaining = finiteNumber(remainingRaw);
+  const limit = finiteNumber(limitRaw);
+  const used = finiteNumber(usedRaw);
+  if (remaining !== null) return { known: true, hasQuota: remaining > 0, reason: `quota_remaining=${remaining}` };
+  if (limit !== null && used !== null) return { known: true, hasQuota: used < limit, reason: `quota_used=${used}/${limit}` };
   return { known: false, hasQuota: true, reason: "quota_unknown_allowed" };
 }
 
@@ -874,6 +1129,47 @@ function currentImportedDocs() {
   return flattenClientInput(parseCredentialText(input));
 }
 
+function addIfValue(out, key, value) {
+  if (value !== undefined && value !== null && String(value).trim() !== "") out[key] = value;
+}
+
+function canonicalMetadataFromEntry(entry) {
+  const out = {};
+  const fieldMap = {
+    quota_5h_limit: credentialPaths.quotaLimit,
+    quota_5h_used: credentialPaths.quotaUsed,
+    quota_5h_remaining: credentialPaths.quotaRemaining,
+    quota_5h_reset_at: credentialPaths.quotaReset,
+    quota_weekly_limit: credentialPaths.weeklyLimit,
+    quota_weekly_used: credentialPaths.weeklyUsed,
+    quota_weekly_remaining: credentialPaths.weeklyRemaining,
+    quota_weekly_reset_at: credentialPaths.weeklyReset,
+  };
+  for (const [key, paths] of Object.entries(fieldMap)) addIfValue(out, key, firstAny(entry, paths));
+  return out;
+}
+
+function toCliProxyCredential(entry, index = 0) {
+  const item = deriveCredential(entry, index);
+  const out = {
+    type: "codex",
+    ...canonicalMetadataFromEntry(entry),
+  };
+  addIfValue(out, "access_token", item.access);
+  addIfValue(out, "refresh_token", item.refresh);
+  addIfValue(out, "id_token", item.idToken);
+  addIfValue(out, "account_id", item.account);
+  addIfValue(out, "email", item.email);
+  addIfValue(out, "chatgpt_user_id", item.user);
+  addIfValue(out, "organization_id", item.org);
+  addIfValue(out, "plan_type", item.plan);
+  addIfValue(out, "last_refresh", item.lastRefreshRaw);
+  addIfValue(out, "expired", item.expiresRaw || (Number.isFinite(item.expiresAt) ? new Date(item.expiresAt).toISOString() : ""));
+  addIfValue(out, "client_id", firstAny(entry, credentialPaths.client) || $("clientId").value.trim());
+  addIfValue(out, "scope", firstAny(entry, credentialPaths.scope) || $("scope").value.trim());
+  return out;
+}
+
 function downloadNormalCredentials() {
   let docs;
   try {
@@ -897,7 +1193,7 @@ function downloadNormalCredentials() {
   const resultByIndex = new Map((lastRefreshResult?.results || []).map((r) => [r.index, r]));
   docs.forEach((doc, i) => {
     const refreshed = okByIndex.get(i);
-    const value = refreshed?.value || doc;
+    const value = refreshed?.value ? { ...canonicalMetadataFromEntry(doc), ...refreshed.value } : toCliProxyCredential(doc, i);
     const result = refreshed?.result || resultByIndex.get(i) || null;
     const cls = classifyNormalCredential(value, result);
     const source = importedSourceNames[i] || candidateNameFromEntry(value) || candidateNameFromEntry(doc) || `codex-${i + 1}`;
@@ -911,7 +1207,7 @@ function downloadNormalCredentials() {
   }
   const count = downloadJsonZip(items, `rt-refresh-normal-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`, "codex-normal");
   const rateLimitedKept = (lastRefreshResult?.results || []).filter((r) => Number(r.status) === 429).length;
-  log(`已打包 ${count} 个正常凭证到 ZIP；排除 ${rejected.length} 条异常。规则：401/402/需要重登/明确无额度会排除；429 只算限速，不当异常${rateLimitedKept ? `（本轮保留 429：${rateLimitedKept} 条）` : ""}。`);
+  log(`已打包 ${count} 个正常 CLIProxyAPI/Codex auth 凭证到 ZIP；排除 ${rejected.length} 条异常。规则：401/402/需要重登/明确无额度会排除；429 只算限速，不当异常${rateLimitedKept ? `（本轮保留 429：${rateLimitedKept} 条）` : ""}。`);
 }
 
 $("file").addEventListener("change", async (ev) => {
@@ -931,23 +1227,15 @@ dropzone.addEventListener("drop", (ev) => importFiles(ev.dataTransfer.files).cat
 $("analyze").addEventListener("click", () => analyze().catch((e) => log(e.message)));
 $("refresh").addEventListener("click", () => refresh().catch((e) => log(e.message)));
 $("sample").addEventListener("click", sample);
-$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; $("credentialDetails").innerHTML = ""; currentEntries = []; selected.clear(); importedSourceNames = []; lastRefreshResult = null; updateSummary(); log("已清空。"); });
+$("clear").addEventListener("click", () => { $("input").value = ""; $("output").value = ""; $("entries").innerHTML = ""; $("credentialDetails").innerHTML = ""; currentEntries = []; selected.clear(); importedSourceNames = []; lastCredentialItems = []; entryPage = 1; credentialPage = 1; lastRefreshResult = null; updateSummary(); log("已清空。"); });
 $("selectAll").addEventListener("click", () => {
-  document.querySelectorAll(".pick:not(:disabled)").forEach((box) => { box.checked = true; selected.add(Number(box.dataset.index)); });
-  updateSummary();
+  selectItems(currentEntries, "select");
 });
 $("selectNone").addEventListener("click", () => {
-  document.querySelectorAll(".pick").forEach((box) => { box.checked = false; });
-  selected.clear();
-  updateSummary();
+  selectItems(currentEntries, "none");
 });
 $("invertSelection").addEventListener("click", () => {
-  document.querySelectorAll(".pick:not(:disabled)").forEach((box) => {
-    const idx = Number(box.dataset.index);
-    box.checked = !box.checked;
-    if (box.checked) selected.add(idx); else selected.delete(idx);
-  });
-  updateSummary();
+  selectItems(currentEntries, "invert");
 });
 $("download").addEventListener("click", download);
 $("downloadEachRefreshed").addEventListener("click", downloadEachRefreshed);

@@ -18,6 +18,17 @@ const PATHS = {
   plan: [["credentials", "plan_type"], ["plan_type"], ["planType"], ["account", "plan_type"], ["account", "planType"]],
 };
 
+const CANONICAL_METADATA_PATHS = {
+  quota_5h_limit: [["quota_5h_limit"], ["quota5hLimit"], ["usage", "quota_5h_limit"], ["quota", "limit"]],
+  quota_5h_used: [["quota_5h_used"], ["quota5hUsed"], ["usage", "quota_5h_used"], ["quota", "used"]],
+  quota_5h_remaining: [["quota_5h_remaining"], ["quota5hRemaining"], ["usage", "quota_5h_remaining"], ["quota", "remaining"]],
+  quota_5h_reset_at: [["quota_5h_reset_at"], ["quota5hResetAt"], ["rate_limit_reset_at"], ["rateLimitResetAt"], ["usage", "quota_5h_reset_at"], ["quota", "reset_at"], ["quota", "resetAt"]],
+  quota_weekly_limit: [["quota_weekly_limit"], ["quota_7d_limit"], ["weekly_quota_limit"], ["quotaWeeklyLimit"], ["usage", "quota_weekly_limit"], ["usage", "quota_7d_limit"], ["quota", "weekly_limit"], ["quota", "weeklyLimit"], ["weekly", "limit"]],
+  quota_weekly_used: [["quota_weekly_used"], ["quota_7d_used"], ["weekly_quota_used"], ["quotaWeeklyUsed"], ["usage", "quota_weekly_used"], ["usage", "quota_7d_used"], ["quota", "weekly_used"], ["quota", "weeklyUsed"], ["weekly", "used"]],
+  quota_weekly_remaining: [["quota_weekly_remaining"], ["quota_7d_remaining"], ["weekly_quota_remaining"], ["quotaWeeklyRemaining"], ["usage", "quota_weekly_remaining"], ["usage", "quota_7d_remaining"], ["quota", "weekly_remaining"], ["quota", "weeklyRemaining"], ["weekly", "remaining"]],
+  quota_weekly_reset_at: [["quota_weekly_reset_at"], ["quota_7d_reset_at"], ["weekly_quota_reset_at"], ["quotaWeeklyResetAt"], ["usage", "quota_weekly_reset_at"], ["usage", "quota_7d_reset_at"], ["quota", "weekly_reset_at"], ["quota", "weeklyResetAt"], ["weekly", "reset_at"], ["weekly", "resetAt"]],
+};
+
 export function loadInput(input) {
   if (typeof input !== "string") return input;
   const text = input.trim();
@@ -87,6 +98,24 @@ function firstString(obj, paths) {
     if (typeof v === "number") return { value: String(v), path };
   }
   return { value: "", path: null };
+}
+
+function firstMetadataValue(obj, paths) {
+  for (const path of paths) {
+    const v = getPath(obj, path);
+    if (v !== undefined && v !== null && String(v).trim() !== "") return v;
+  }
+  return undefined;
+}
+
+function canonicalMetadata(entry) {
+  const raw = entry?.mutable && typeof entry.mutable === "object" ? entry.mutable : {};
+  const out = {};
+  for (const [key, paths] of Object.entries(CANONICAL_METADATA_PATHS)) {
+    const value = firstMetadataValue(raw, paths);
+    if (value !== undefined) out[key] = value;
+  }
+  return out;
 }
 
 export function fingerprint(token) {
@@ -328,6 +357,7 @@ export function toCanonicalCPA(entry, tokenResp = {}) {
   const identity = identityFromJwt(access, id);
   return Object.fromEntries(Object.entries({
     type: "codex",
+    ...canonicalMetadata(entry),
     access_token: access,
     refresh_token: refresh,
     id_token: id,

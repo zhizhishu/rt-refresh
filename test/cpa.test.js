@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { analyzeInput, normalizeEntry, refreshCPA } from "../src/cpa.js";
+import { analyzeInput, normalizeEntry, refreshCPA, toCanonicalCPA } from "../src/cpa.js";
 
 function withMockTokenServer(handler) {
   const server = http.createServer(async (req, res) => {
@@ -99,6 +99,22 @@ test("normalize supports CLIProxyAPI codex auth shape", () => {
   assert.equal(item.credentials.access_token, "at");
   assert.equal(item.credentials.refresh_token, "rt");
   assert.equal(item.credentials.chatgpt_account_id, "acc");
+});
+
+test("canonical CLIProxy export preserves quota metadata", () => {
+  const item = normalizeEntry({
+    name: "quota",
+    credentials: { access_token: "at", refresh_token: "rt" },
+    quota_5h_remaining: 12,
+    quota_weekly_limit: 300,
+    quota_weekly_used: 18,
+  });
+  const out = toCanonicalCPA(item, { access_token: "at2", refresh_token: "rt2" });
+  assert.equal(out.type, "codex");
+  assert.equal(out.access_token, "at2");
+  assert.equal(out.quota_5h_remaining, 12);
+  assert.equal(out.quota_weekly_limit, 300);
+  assert.equal(out.quota_weekly_used, 18);
 });
 
 test("analyze supports pasted raw rt lines", () => {
