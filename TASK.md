@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-09T04:53:54Z
+last_updated: 2026-06-09T05:08:07Z
 
 ## Current Goal
 
@@ -62,6 +62,12 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - Keeps 429/rate-limited rows because they are treated as throttling rather than credential abnormality.
   - Uses refreshed canonical CPA for successful rows and original imported CPA for retained non-refreshed rows.
 
+- Added remote CPA one-shot clean/write-back workflow:
+  - `POST /api/remote-cpa/pull` pulls Sub2API-compatible `/api/v1/admin/accounts/data` into the UI.
+  - `POST /api/remote-cpa/clean` pulls, refreshes RTs once, filters invalid credentials, returns invalid log, and optionally writes cleaned data back to `/api/v1/admin/accounts/data`.
+  - UI panel `0d. 远程 CPA 一次性清洗 / 回导` supports x-api-key/Bearer/Basic auth, filters, require-RT toggle, write-back confirmation, and invalid-log download.
+  - 401/402/re-login/reused/invalid-grant/no-quota are dropped; 429/rate-limited is retained as throttling.
+
 ## Validation
 
 - `npm test` passed: 10/10 tests.
@@ -92,6 +98,12 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - `node --check src/server.js` passed.
   - `npm test` passed: 10/10 tests.
   - Local HTTP smoke confirmed `下载正常凭证ZIP` button, handler binding, and 429-not-abnormal rule are present.
+
+- Remote CPA workflow validation:
+  - `node --check src/server.js` passed.
+  - `node --check public/app.js` passed.
+  - `npm test` passed: 10/10 tests.
+  - Local Sub2API/CPA mock smoke passed: pull 4 accounts, refresh good account, retain 429, drop 401 and explicit no-quota, write back 2 cleaned accounts, and verify UI panel presence.
 
 ## Server Update Command
 

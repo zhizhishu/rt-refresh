@@ -7,6 +7,7 @@ let lastRefreshResult = null;
 let lastDownloadObjectUrl = "";
 let lastOAuthStart = null;
 let rawCredentialsVisible = false;
+let lastRemoteCPAResult = null;
 
 function updateSummary() {
   const refreshable = currentEntries.filter((e) => e.has_refresh_token).length;
@@ -741,6 +742,96 @@ function downloadOAuthLatest() {
   log("已请求下载最新 OAuth 登录 CPA JSON；如果 404，说明还没有登录成功结果。");
 }
 
+function remoteCPAConnectionPayload() {
+  const searchOrIds = $("remoteCpaSearch").value.trim();
+  const filters = {
+    platform: $("remoteCpaPlatform").value.trim() || "openai",
+    type: $("remoteCpaType").value.trim() || "oauth",
+    status: $("remoteCpaStatus").value.trim() || "active",
+    include_proxies: false,
+  };
+  if (/^\d+(?:\s*,\s*\d+)*$/.test(searchOrIds)) filters.ids = searchOrIds;
+  else if (searchOrIds) filters.search = searchOrIds;
+  return {
+    base_url: $("remoteCpaUrl").value.trim(),
+    admin_key: $("remoteCpaKey").value,
+    auth_mode: $("remoteCpaAuthMode").value,
+    filters,
+  };
+}
+
+async function remoteCPAPull() {
+  const payload = remoteCPAConnectionPayload();
+  if (!payload.base_url || !payload.admin_key) return log("CPA 地址和 CPA 密码/API Key 都要填。");
+  const data = await api("/api/remote-cpa/pull", payload);
+  $("input").value = pretty(data.data);
+  $("remoteCpaOutput").value = pretty({
+    ok: true,
+    action: "pull",
+    count: data.count,
+    note: "已拉取远程 CPA accounts/data 并导入当前输入框；尚未刷新，也没有回导。",
+  });
+  log(`远程 CPA 拉取完成：${data.count} 条，已导入输入框。`);
+  await analyze();
+}
+
+async function remoteCPAClean() {
+  const payload = {
+    ...remoteCPAConnectionPayload(),
+    write_back: $("remoteCpaWriteBack").checked,
+    require_refresh_token: $("remoteCpaRequireRT").checked,
+    skip_default_group_bind: $("remoteCpaSkipDefaultGroup").checked,
+    refresh_options: {
+      token_url: $("tokenUrl").value.trim(),
+      client_id: $("clientId").value.trim(),
+      scope: $("scope").value.trim(),
+      user_agent: $("ua").value.trim(),
+      request_interval_ms: Number($("requestInterval").value || 0),
+      retry_attempts: Number($("retryAttempts").value || 1),
+      retry_backoff_ms: Number($("retryBackoff").value || 1000),
+    },
+  };
+  if (!payload.base_url || !payload.admin_key) return log("CPA 地址和 CPA 密码/API Key 都要填。");
+  if (payload.write_back && !confirm("确认把清洗后的可用凭证回导到远程 CPA？这是一次性写入。")) {
+    return log("已取消回导。");
+  }
+  $("remoteCpaClean").disabled = true;
+  $("remoteCpaClean").textContent = "清洗中...";
+  try {
+    const result = await api("/api/remote-cpa/clean", payload);
+    lastRemoteCPAResult = result;
+    $("remoteCpaOutput").value = pretty({
+      ok: result.ok,
+      write_back: result.write_back,
+      pulled: result.pulled,
+      kept: result.kept,
+      dropped: result.dropped,
+      refreshed: result.refreshed,
+      failed: result.failed,
+      invalid_log: result.invalid_log,
+      import_result: result.import_result,
+    });
+    $("output").value = pretty(result.cleaned);
+    if (result.cleaned) $("input").value = pretty(result.cleaned);
+    log(`远程 CPA 一次性清洗完成：拉取 ${result.pulled}，保留 ${result.kept}，剔除 ${result.dropped}，刷新成功 ${result.refreshed}，失败 ${result.failed}，write_back=${result.write_back}。`);
+    if (result.dropped) log(`无效凭证日志已生成：${result.dropped} 条，可点“下载无效日志”。`);
+    await analyze().catch(() => {});
+  } finally {
+    $("remoteCpaClean").disabled = false;
+    $("remoteCpaClean").textContent = "一次性刷新清洗";
+  }
+}
+
+function downloadRemoteInvalidLog() {
+  const rows = lastRemoteCPAResult?.invalid_log || [];
+  if (!rows.length) return log("还没有无效凭证日志。先跑一次远程 CPA 清洗。");
+  clickDownload(pretty({
+    generated_at: new Date().toISOString(),
+    count: rows.length,
+    invalid_log: rows,
+  }), `rt-refresh-remote-cpa-invalid-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
+}
+
 function explicitQuotaState(entry) {
   const remainingRaw = firstAny(entry, credentialPaths.quotaRemaining);
   const limitRaw = firstAny(entry, credentialPaths.quotaLimit);
@@ -873,6 +964,9 @@ $("startOAuthLogin").addEventListener("click", () => startOAuthLogin().catch((e)
 $("openOAuthLogin").addEventListener("click", openOAuthLogin);
 $("refreshOAuthLogins").addEventListener("click", () => refreshOAuthLogins().catch((e) => log(e.message)));
 $("downloadOAuthLatest").addEventListener("click", downloadOAuthLatest);
+$("remoteCpaPull").addEventListener("click", () => remoteCPAPull().catch((e) => log(e.message)));
+$("remoteCpaClean").addEventListener("click", () => remoteCPAClean().catch((e) => log(e.message)));
+$("downloadRemoteInvalidLog").addEventListener("click", downloadRemoteInvalidLog);
 $("renderCredentialDetails").addEventListener("click", () => renderCredentialDetails(true));
 $("toggleRawCredentials").addEventListener("click", toggleRawCredentials);
 

@@ -77,6 +77,61 @@
         <textarea id="oauthOutput" spellcheck="false" placeholder="点击“生成登录链接”，完成网页登录后这里会显示登录结果。"></textarea>
       </section>
 
+      <section class="panel remote-cpa-panel">
+        <div class="panel-head">
+          <div>
+            <h2>0d. 远程 CPA 一次性清洗 / 回导</h2>
+            <p>连接 Sub2API/CPA 管理端，按参考接口拉取 <code>/api/v1/admin/accounts/data</code>，本地刷新并筛掉无效凭证；只有勾选“确认回导”才写回 <code>/api/v1/admin/accounts/data</code>。这是一次性操作，不做后台循环。</p>
+          </div>
+          <div class="actions compact">
+            <button id="remoteCpaPull" class="ghost">拉取并导入</button>
+            <button id="remoteCpaClean">一次性刷新清洗</button>
+            <button id="downloadRemoteInvalidLog" class="ghost">下载无效日志</button>
+          </div>
+        </div>
+        <div class="form">
+          <label>
+            CPA Base URL
+            <input id="remoteCpaUrl" placeholder="https://your-sub2api-host" />
+          </label>
+          <label>
+            CPA 密码 / Admin API Key
+            <input id="remoteCpaKey" type="password" autocomplete="off" placeholder="x-api-key / bearer token / localhost password" />
+          </label>
+          <label>
+            认证方式
+            <select id="remoteCpaAuthMode">
+              <option value="x-api-key">x-api-key（Sub2API 推荐）</option>
+              <option value="bearer">Authorization Bearer</option>
+              <option value="basic">Basic admin:密码</option>
+            </select>
+          </label>
+          <label>
+            platform
+            <input id="remoteCpaPlatform" value="openai" />
+          </label>
+          <label>
+            type
+            <input id="remoteCpaType" value="oauth" />
+          </label>
+          <label>
+            status
+            <input id="remoteCpaStatus" value="active" />
+          </label>
+          <label>
+            search / ids
+            <input id="remoteCpaSearch" placeholder="可空；ids 写 1,2,3" />
+          </label>
+        </div>
+        <div class="toggles">
+          <label><input id="remoteCpaWriteBack" type="checkbox" /> 确认回导清洗后的可用凭证到 CPA</label>
+          <label><input id="remoteCpaRequireRT" type="checkbox" checked /> 要求保留项包含 RT（推荐）</label>
+          <label><input id="remoteCpaSkipDefaultGroup" type="checkbox" checked /> 回导时 skip_default_group_bind</label>
+        </div>
+        <p class="hint">无效定义：401/402、需要重新登录、RT reused、invalid_grant、明确无额度会剔除；429 只当限速，不剔除。未勾选回导时只预览并把清洗结果放到导出框。</p>
+        <textarea id="remoteCpaOutput" spellcheck="false" placeholder="远程 CPA 清洗结果和无效凭证日志会显示在这里"></textarea>
+      </section>
+
       <section class="grid">
         <article class="panel input-panel">
           <div class="panel-head">

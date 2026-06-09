@@ -26,6 +26,7 @@
 - 支持标准 CPA auth 数组导出。
 - 单账号导出打包为 ZIP；推荐用于 CLIProxyAPI `auths/` 目录。刷新后 ZIP 只含刷新成功的新凭证，原始 ZIP 只做备份。
 - 正常凭证 ZIP 导出：按刷新结果/导入字段筛掉 401、402、需要重新登录、明确无额度的凭证；429 只视为限速，不当异常。
+- 远程 CPA 一次性清洗/回导：连接 Sub2API/CPA 管理端，拉取账号数据，本地刷新筛选可用凭证，生成无效日志；只有勾选确认才回导。
 - `NV CTF / #jshook 000` 授权标识展示。
 - `/api/fingerprint`：记录请求该接口的客户端 headers，适合让 Codex/Claude CLI 主动访问以获取真实 CLI UA/headers。
 - `/proxy?target=...`：诊断代理，转发请求并在内存里记录请求/响应 headers 与脱敏 body 摘要。
@@ -233,6 +234,30 @@ npm run companion -- --endpoint http://127.0.0.1:8787/api/cli-report --basic-aut
 ```
 
 捕获记录保存在服务内存中，重启即清空。
+
+## 远程 CPA 一次性清洗 / 回导
+
+页面里的 `0d. 远程 CPA 一次性清洗 / 回导` 用 Sub2API 管理端参考接口：
+
+- 拉取：`GET /api/v1/admin/accounts/data`
+- 回导：`POST /api/v1/admin/accounts/data`
+- 默认认证：`x-api-key: <CPA 密码 / Admin API Key>`；也支持 Bearer 和 Basic `admin:密码`。
+
+流程：
+
+1. 填 CPA Base URL 和 CPA 密码/API Key。
+2. 点“拉取并导入”只读导入当前输入框。
+3. 点“一次性刷新清洗”会拉取、刷新 RT、筛掉无效凭证、生成无效日志，并把清洗后的 JSON 放进导出框。
+4. 只有勾选“确认回导清洗后的可用凭证到 CPA”才会写回远程 CPA。
+
+清洗规则：
+
+- 剔除：401、402、需要重新登录、`app_session_terminated`、`refresh_token_reused`、`invalid_grant`、`invalid_client`、billing/payment、明确无额度。
+- 剔除：`quota_5h_remaining <= 0` 或 `quota_5h_used >= quota_5h_limit`。
+- 保留：429 / `rate_limited`，因为它只是限速，不代表凭证失效。
+- 默认要求保留项包含 RT；可在页面取消这个要求。
+
+这是一次性操作，不会定时刷新，也不会在服务端落盘保存 CPA 密码或导入凭证。
 
 ## 正常凭证筛选导出
 

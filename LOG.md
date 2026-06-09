@@ -96,3 +96,11 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Added `下载正常凭证ZIP` button. It filters current imported credentials plus the latest refresh result.
 - Excludes 401/402, re-login/session-ended/reused/invalid-grant style errors, billing/payment, and explicit no-quota fields; keeps 429/rate-limited as non-abnormal throttling.
 - Validation passed: `node --check public/app.js`, `node --check src/server.js`, `npm test` 10/10, local HTTP smoke for button/handler/429 rule, multi-arch GHCR push `latest` / `0451056`, manifest amd64/arm64, and pulled-image smoke. Digest `sha256:fbf9842e94ef7bd3bf7bdb6693dba0b8560552c33763b68063dca6dbb802e4b3`.
+
+
+## 2026-06-09T05:08:07Z - Remote CPA one-shot clean and write-back
+
+- Added Sub2API-compatible remote CPA workflow: pull `/api/v1/admin/accounts/data`, refresh credentials once, filter invalid accounts, produce invalid log, and optionally write cleaned data back to `/api/v1/admin/accounts/data`.
+- Added UI panel with CPA URL/key, auth mode, filters, require-RT toggle, write-back confirmation, and invalid-log download.
+- Invalid filtering drops 401/402/re-login/reused/invalid-grant/no-quota while retaining 429/rate-limited as throttling.
+- Validation passed: `node --check src/server.js`, `node --check public/app.js`, `npm test` 10/10, and local Sub2API/CPA mock smoke for pull/clean/write-back.
