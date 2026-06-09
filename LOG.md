@@ -95,4 +95,4 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 
 - Added `下载正常凭证ZIP` button. It filters current imported credentials plus the latest refresh result.
 - Excludes 401/402, re-login/session-ended/reused/invalid-grant style errors, billing/payment, and explicit no-quota fields; keeps 429/rate-limited as non-abnormal throttling.
-- Validation passed: `node --check public/app.js`, `node --check src/server.js`, `npm test` 10/10, and local HTTP smoke for button/handler/429 rule.
+- Validation passed: `node --check public/app.js`, `node --check src/server.js`, `npm test` 10/10, local HTTP smoke for button/handler/429 rule, multi-arch GHCR push `latest` / `0451056`, manifest amd64/arm64, and pulled-image smoke. Digest `sha256:fbf9842e94ef7bd3bf7bdb6693dba0b8560552c33763b68063dca6dbb802e4b3`.

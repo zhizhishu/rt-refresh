@@ -1,6 +1,6 @@
 # TASK
 
-last_updated: 2026-06-09T04:48:42Z
+last_updated: 2026-06-09T04:53:54Z
 
 ## Current Goal
 
@@ -54,8 +54,8 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 - Updated README with OAuth APIs, quota display rules, and reference-derived OAuth parameters.
 - Pushed multi-arch GHCR images:
   - `ghcr.io/zhizhishu/rt-refresh:latest`
-  - `ghcr.io/zhizhishu/rt-refresh:a3de128`
-- `latest` digest: `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`.
+  - `ghcr.io/zhizhishu/rt-refresh:0451056`
+- `latest` digest: `sha256:fbf9842e94ef7bd3bf7bdb6693dba0b8560552c33763b68063dca6dbb802e4b3`.
 
 - Added normal-credential ZIP export button:
   - Excludes 401, 402, re-login/session-ended/reused/invalid-grant style errors, billing/payment, and explicit no-quota fields.
@@ -85,7 +85,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
   - `node --check public/app.js` passed.
   - OAuth mock smoke passed for `/api/oauth/start`, `/oauth/callback`, `/api/oauth/latest`, `/api/oauth/download/latest`, and UI panel presence.
   - GHCR pulled-image smoke passed for `/api/config`, OAuth panel, quota panel, `/api/oauth/start`, and `/api/captures`.
-  - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`; digest `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`.
+  - `docker buildx imagetools inspect ghcr.io/zhizhishu/rt-refresh:latest` shows `linux/amd64` and `linux/arm64`; digest `sha256:fbf9842e94ef7bd3bf7bdb6693dba0b8560552c33763b68063dca6dbb802e4b3`.
 
 - Normal credential export validation:
   - `node --check public/app.js` passed.
@@ -99,7 +99,7 @@ Maintain and publish `rt-refresh`: local/Docker UI for importing CPA/Codex JSON,
 
 ## Next Diagnostic
 
-- Deploy latest image (`a3de128` / digest `sha256:e725a67b9c6a41848d03d89ff9b27a59bfbc7070bdbe529ed8c77e8a4c336c07`) and hard refresh browser.
+- Deploy latest image (`0451056` / digest `sha256:fbf9842e94ef7bd3bf7bdb6693dba0b8560552c33763b68063dca6dbb802e4b3`) and hard refresh browser.
 - Use the new `0b. CLI / Proxy 捕获` panel for CLI active requests, proxy captures, and companion reports.
 - For personal use, set `AUTH_USER` and `AUTH_PASSWORD` in Docker Compose before exposing the port.
 - For CTF raw capture, set `CAPTURE_REDACT=false`; for companion raw report, add `--no-redact`.
