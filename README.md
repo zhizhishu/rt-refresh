@@ -24,6 +24,7 @@
 - 账号勾选支持全选可刷新、全不选、反选。
 - 默认“exclusive”导出：只保留刷新成功的凭证。
 - 默认导出 CLIProxyAPI/Codex auth 数组，避免把 Sub2API `credentials` 包装误当成可直接放入 CLIProxyAPI `auths/` 的文件。
+- 页面显式提供“导出 CPA 凭证ZIP”按钮；它与“下载正常 CLIProxy ZIP”走同一套可用凭证筛选和 CLIProxyAPI/Codex auth 输出逻辑。
 - 单账号导出打包为 ZIP；推荐用于 CLIProxyAPI `auths/` 目录。刷新后 ZIP 只含刷新成功的新凭证，原始/Sub ZIP 只做备份。
 - 正常凭证 ZIP 导出：按刷新结果/导入字段筛掉 401、402、需要重新登录、明确无额度的凭证；429 只视为限速，不当异常；输出统一为 CLIProxyAPI/Codex auth JSON。
 - 远程 CPA 一次性清洗/回导：连接 Sub2API/CPA 管理端，拉取账号数据，本地刷新筛选可用凭证，生成无效日志；只有勾选确认才回导。
@@ -364,4 +365,3 @@ UI 中可配置：
 - Cookie / session token
 
 `.gitignore` 已排除常见本地文件，但凭证文件名千奇百怪，别靠运气。
-

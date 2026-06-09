@@ -112,3 +112,9 @@ Fixed refreshed ZIP export naming and download reliability. Imported source name
 - Fixed normal/refreshed credential ZIP paths so usable exports are CLIProxyAPI/Codex auth JSON, while original/Sub2API JSON is only an explicit backup export.
 - Preserved 5h and weekly quota metadata in canonical CLIProxy exports.
 - Validation: `node --check public/app.js`, `node --check src/cpa.js`, `npm test` 11/11, local HTTP smoke, and `git diff --check`.
+
+## 2026-06-09T06:05:24Z - Explicit CPA credential export button
+
+- Added a visible `导出 CPA 凭证ZIP` button in the export panel.
+- The new button calls the same CLIProxy/Codex normal credential ZIP export path as `下载正常 CLIProxy ZIP`, so users do not need to infer that CPA credential export is hidden behind CLIProxy wording.
+- Validation: `node --check public/app.js`, `npm test` 11/11, and local HTTP smoke confirmed button presence and binding.

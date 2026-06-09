@@ -1238,6 +1238,7 @@ $("invertSelection").addEventListener("click", () => {
   selectItems(currentEntries, "invert");
 });
 $("download").addEventListener("click", download);
+$("exportCpaCredentials").addEventListener("click", downloadNormalCredentials);
 $("downloadEachRefreshed").addEventListener("click", downloadEachRefreshed);
 $("downloadNormalCredentials").addEventListener("click", downloadNormalCredentials);
 $("downloadEachImported").addEventListener("click", downloadEachImported);
